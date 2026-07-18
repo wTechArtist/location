@@ -229,14 +229,12 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: options.getMTU())
 
-        if options.getAutoRoute(),
-           let dnsServer = try options.getDNSServerAddress()?.value,
-           !dnsServer.isEmpty
-        {
-                let dns = NEDNSSettings(servers: [dnsServer])
-                dns.matchDomains = [""]
-                dns.matchDomainsNoSearch = true
-                settings.dnsSettings = dns
+        let dnsServer = options.getDNSServerAddress().value
+        if options.getAutoRoute(), !dnsServer.isEmpty {
+            let dns = NEDNSSettings(servers: [dnsServer])
+            dns.matchDomains = [""]
+            dns.matchDomainsNoSearch = true
+            settings.dnsSettings = dns
         }
 
         let ipv4Addresses = options.getInet4Address()!
@@ -308,11 +306,11 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
             proxy.httpsServer = server
             let matches = options.getHTTPProxyMatchDomain()!
             var matchDomains: [String] = []
-            while matches.hasNext() { if let value = matches.next() { matchDomains.append(value) } }
+            while matches.hasNext() { matchDomains.append(matches.next()) }
             proxy.matchDomains = matchDomains
             let bypasses = options.getHTTPProxyBypassDomain()!
             var bypassDomains: [String] = []
-            while bypasses.hasNext() { if let value = bypasses.next() { bypassDomains.append(value) } }
+            while bypasses.hasNext() { bypassDomains.append(bypasses.next()) }
             proxy.exceptionList = bypassDomains
             settings.proxySettings = proxy
         }
@@ -371,8 +369,13 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
     }
 
     func getInterfaces() throws -> LibboxNetworkInterfaceIteratorProtocol {
-        let path = pathMonitor?.currentPath
-        let values = (path?.status == .satisfied ? path?.availableInterfaces : nil)?.map { source in
+        let sources: [NWInterface]
+        if let path = pathMonitor?.currentPath, path.status == .satisfied {
+            sources = path.availableInterfaces
+        } else {
+            sources = []
+        }
+        let values: [LibboxNetworkInterface] = sources.map { source in
             let interface = LibboxNetworkInterface()
             interface.name = source.name
             interface.index = Int32(source.index)
@@ -383,7 +386,7 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
             default: LibboxInterfaceTypeOther
             }
             return interface
-        } ?? []
+        }
         return WlocNetworkInterfaceIterator(values)
     }
 
