@@ -44,7 +44,7 @@ cp "$OVERLAY_SOURCE" "$OVERLAY_TARGET"
 cp "$OVERLAY_TEST_SOURCE" "$OVERLAY_TEST_TARGET"
 
 echo "Building sing-box $VERSION Libbox.xcframework..."
-(cd "$SOURCE_DIR" && go test ./experimental/libbox && make lib_apple)
+(cd "$SOURCE_DIR" && make lib_install && go test ./experimental/libbox && make lib_apple)
 
 if [ ! -d "$FRAMEWORK_SOURCE" ]; then
   echo "error: 构建完成但未找到 $FRAMEWORK_SOURCE" >&2
