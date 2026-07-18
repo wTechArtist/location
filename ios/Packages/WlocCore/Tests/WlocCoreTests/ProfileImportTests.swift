@@ -51,6 +51,26 @@ final class ProfileImportTests: XCTestCase {
         XCTAssertTrue(outbounds.contains { $0["type"] as? String == "urltest" && $0["tag"] as? String == "Auto" })
         XCTAssertTrue(outbounds.contains { $0["type"] as? String == "selector" && $0["tag"] as? String == "Main" })
         XCTAssertTrue(draft.issues.contains { $0.location == "[mitm]" && $0.severity == .warning })
+        XCTAssertTrue(draft.issues.contains {
+            $0.severity == .information && $0.message.contains("udp-relay=true")
+        })
+    }
+
+    func testDefaultsUnmatchedTrafficToDirectAndReportsWarning() throws {
+        let source = """
+        [Proxy]
+        HK-SS = ss, hk.example.com, 8388, encrypt-method=aes-128-gcm, password=secret
+        """
+
+        let draft = try ProxyProfileImporter.importConfiguration(Data(source.utf8), sourceName: "no-final.conf")
+        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: draft.configuration) as? [String: Any])
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+
+        XCTAssertTrue(draft.isUsable, draft.issues.map(\.message).joined(separator: " | "))
+        XCTAssertEqual(route["final"] as? String, "direct")
+        XCTAssertTrue(draft.issues.contains {
+            $0.severity == .warning && $0.message.contains("未匹配流量将默认直连")
+        })
     }
 
     func testUnsupportedNodeMakesDraftUnusableWithoutDroppingReport() throws {
