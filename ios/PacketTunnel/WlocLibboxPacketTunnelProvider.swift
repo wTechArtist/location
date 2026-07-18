@@ -92,6 +92,7 @@ class WlocLibboxPacketTunnelProvider: NEPacketTunnelProvider {
             }
             commandServer = server
             try server.start()
+            patcher.beginSession()
             try startOrReloadService()
             Self.logger.notice("WLOC tunnel started; MITM port=\(proxy.port(), privacy: .public)")
         } catch {
@@ -125,6 +126,7 @@ class WlocLibboxPacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     fileprivate func stopServices() {
+        responsePatcher?.finishSession()
         try? commandServer?.closeService()
         if let commandServer {
             commandServer.close()
@@ -162,9 +164,28 @@ private struct PacketTunnelEnvironment {
 private final class WlocResponsePatcherBridge: NSObject, LibboxWlocResponsePatcherProtocol {
     private static let logger = Logger(subsystem: "app.wloc", category: "WlocMITM")
     private let store: WlocSharedStore
+    private let diagnosticsLock = NSLock()
+    private var diagnostics: WlocTunnelDiagnostics?
 
     init(appGroupIdentifier: String) throws {
         store = try WlocSharedStore(appGroupIdentifier: appGroupIdentifier)
+    }
+
+    func beginSession() {
+        diagnosticsLock.lock()
+        defer { diagnosticsLock.unlock() }
+        let value = WlocTunnelDiagnostics()
+        diagnostics = value
+        try? store.saveTunnelDiagnostics(value)
+    }
+
+    func finishSession() {
+        diagnosticsLock.lock()
+        defer { diagnosticsLock.unlock() }
+        guard var value = diagnostics, value.stoppedAt == nil else { return }
+        value.stoppedAt = .now
+        diagnostics = value
+        try? store.saveTunnelDiagnostics(value)
     }
 
     func patchResponse(_ body: Data?) throws -> Data {
@@ -174,7 +195,23 @@ private final class WlocResponsePatcherBridge: NSObject, LibboxWlocResponsePatch
         Self.logger.notice(
             "patched mode=\(target.mode.rawValue, privacy: .public) locations=\(result.statistics.locations, privacy: .public) wifi=\(result.statistics.wifiMessages, privacy: .public) cell=\(result.statistics.cellMessages, privacy: .public)"
         )
+        recordPatch(target: target, statistics: result.statistics)
         return result.data
+    }
+
+    private func recordPatch(target: WlocTarget, statistics: WlocPatchStatistics) {
+        diagnosticsLock.lock()
+        defer { diagnosticsLock.unlock() }
+        guard var value = diagnostics else { return }
+        value.lastPatchedAt = .now
+        value.lastTargetMode = target.mode
+        value.responseCount += 1
+        value.locations += statistics.locations
+        value.wifiMessages += statistics.wifiMessages
+        value.cellMessages += statistics.cellMessages
+        value.skippedMessages += statistics.skippedMessages
+        diagnostics = value
+        try? store.saveTunnelDiagnostics(value)
     }
 
     func writeLog(_ message: String?) {

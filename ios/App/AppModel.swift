@@ -40,6 +40,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var hasDeviceCA = false
     @Published private(set) var caTrustConfirmed = false
     @Published var certificateProfileURL: URL?
+    @Published private(set) var tunnelDiagnostics: WlocTunnelDiagnostics?
+    @Published var diagnosticsReportURL: URL?
 
     let tunnel: TunnelController
     let location = LocationMonitor()
@@ -80,6 +82,7 @@ final class AppModel: ObservableObject {
             try await refreshProfiles()
             hasDeviceCA = try certificateManager.hasCertificate()
             caTrustConfirmed = sharedStore.isCATrustConfirmed()
+            tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
         } catch {
             present(error, title: "载入失败")
         }
@@ -179,6 +182,38 @@ final class AppModel: ObservableObject {
         caTrustConfirmed = true
     }
 
+    func refreshTunnelDiagnostics() {
+        do {
+            tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
+        } catch {
+            present(error, title: "读取诊断失败")
+        }
+    }
+
+    func prepareDiagnosticsReport() {
+        do {
+            tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
+            let activeProfile = profiles.first { $0.id == activeProfileID }
+            let report = DiagnosticsReport(
+                exportedAt: .now,
+                appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+                appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+                tunnelState: tunnel.state.label,
+                activeProfileFormat: activeProfile?.format.rawValue,
+                diagnostics: tunnelDiagnostics
+            )
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("wloc-diagnostics-\(Int(Date().timeIntervalSince1970)).json")
+            try encoder.encode(report).write(to: url, options: .atomic)
+            diagnosticsReportURL = url
+        } catch {
+            present(error, title: "生成诊断失败")
+        }
+    }
+
     func activateProfile(_ id: UUID) async {
         do {
             let configuration = try await profileRepository.configuration(for: id)
@@ -261,6 +296,7 @@ final class AppModel: ObservableObject {
     }
 
     func resumeAfterReturningFromSettings() async {
+        refreshTunnelDiagnostics()
         guard workflow == .waitingForLocationOff || workflow == .waitingForLocationOn else { return }
         await continueLocationCycle()
     }
@@ -512,4 +548,14 @@ final class AppModel: ObservableObject {
     private func presentMessage(title: String, message: String) {
         alert = AlertMessage(title: title, message: message)
     }
+}
+
+private struct DiagnosticsReport: Encodable {
+    let schemaVersion = 1
+    var exportedAt: Date
+    var appVersion: String
+    var appBuild: String
+    var tunnelState: String
+    var activeProfileFormat: String?
+    var diagnostics: WlocTunnelDiagnostics?
 }

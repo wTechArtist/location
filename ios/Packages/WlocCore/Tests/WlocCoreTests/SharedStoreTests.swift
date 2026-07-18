@@ -27,4 +27,31 @@ struct SharedStoreTests {
         try store.saveLocationCycleCheckpoint(nil)
         #expect(try store.loadLocationCycleCheckpoint() == nil)
     }
+
+    @Test("tunnel diagnostics round-trip without proxy credentials")
+    func tunnelDiagnosticsRoundTrip() throws {
+        let suiteName = "app.wloc.tests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let diagnostics = WlocTunnelDiagnostics(
+            sessionID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            startedAt: fixedDate,
+            stoppedAt: fixedDate,
+            lastPatchedAt: fixedDate,
+            lastTargetMode: .override,
+            responseCount: 3,
+            locations: 4,
+            wifiMessages: 2,
+            cellMessages: 1,
+            skippedMessages: 0
+        )
+
+        try store.saveTunnelDiagnostics(diagnostics)
+        #expect(try store.loadTunnelDiagnostics() == diagnostics)
+
+        try store.saveTunnelDiagnostics(nil)
+        #expect(try store.loadTunnelDiagnostics() == nil)
+    }
 }

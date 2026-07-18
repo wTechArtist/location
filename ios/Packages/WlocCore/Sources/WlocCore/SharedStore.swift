@@ -7,6 +7,7 @@ public final class WlocSharedStore: @unchecked Sendable {
     public static let realLocationBaselineKey = "wloc.real-location-baseline.v1"
     public static let caTrustConfirmedKey = "wloc.ca-trust-confirmed.v1"
     public static let locationCycleCheckpointKey = "wloc.location-cycle-checkpoint.v1"
+    public static let tunnelDiagnosticsKey = "wloc.tunnel-diagnostics.v1"
 
     private let defaults: UserDefaults
     private let encoder: JSONEncoder
@@ -84,6 +85,19 @@ public final class WlocSharedStore: @unchecked Sendable {
             defaults.set(try encoder.encode(checkpoint), forKey: Self.locationCycleCheckpointKey)
         } else {
             defaults.removeObject(forKey: Self.locationCycleCheckpointKey)
+        }
+    }
+
+    public func loadTunnelDiagnostics() throws -> WlocTunnelDiagnostics? {
+        guard let data = defaults.data(forKey: Self.tunnelDiagnosticsKey) else { return nil }
+        return try decoder.decode(WlocTunnelDiagnostics.self, from: data)
+    }
+
+    public func saveTunnelDiagnostics(_ diagnostics: WlocTunnelDiagnostics?) throws {
+        if let diagnostics {
+            defaults.set(try encoder.encode(diagnostics), forKey: Self.tunnelDiagnosticsKey)
+        } else {
+            defaults.removeObject(forKey: Self.tunnelDiagnosticsKey)
         }
     }
 }

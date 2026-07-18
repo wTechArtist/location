@@ -93,6 +93,43 @@ public struct LocationCycleCheckpoint: Codable, Hashable, Sendable {
     }
 }
 
+public struct WlocTunnelDiagnostics: Codable, Equatable, Sendable {
+    public var sessionID: UUID
+    public var startedAt: Date
+    public var stoppedAt: Date?
+    public var lastPatchedAt: Date?
+    public var lastTargetMode: WlocTarget.Mode?
+    public var responseCount: Int
+    public var locations: Int
+    public var wifiMessages: Int
+    public var cellMessages: Int
+    public var skippedMessages: Int
+
+    public init(
+        sessionID: UUID = UUID(),
+        startedAt: Date = .now,
+        stoppedAt: Date? = nil,
+        lastPatchedAt: Date? = nil,
+        lastTargetMode: WlocTarget.Mode? = nil,
+        responseCount: Int = 0,
+        locations: Int = 0,
+        wifiMessages: Int = 0,
+        cellMessages: Int = 0,
+        skippedMessages: Int = 0
+    ) {
+        self.sessionID = sessionID
+        self.startedAt = startedAt
+        self.stoppedAt = stoppedAt
+        self.lastPatchedAt = lastPatchedAt
+        self.lastTargetMode = lastTargetMode
+        self.responseCount = responseCount
+        self.locations = locations
+        self.wifiMessages = wifiMessages
+        self.cellMessages = cellMessages
+        self.skippedMessages = skippedMessages
+    }
+}
+
 public enum WlocCoreError: Error, LocalizedError, Equatable, Sendable {
     case invalidLatitude(Double)
     case invalidLongitude(Double)

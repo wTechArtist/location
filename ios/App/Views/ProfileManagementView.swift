@@ -55,6 +55,50 @@ struct ProfileManagementView: View {
                 }
 
                 Section {
+                    if let diagnostics = model.tunnelDiagnostics {
+                        LabeledContent("会话") {
+                            Text(diagnostics.sessionID.uuidString.prefix(8))
+                                .font(.system(.caption, design: .monospaced))
+                        }
+                        LabeledContent("开始") {
+                            Text(diagnostics.startedAt, format: .dateTime.year().month().day().hour().minute().second())
+                        }
+                        if let stoppedAt = diagnostics.stoppedAt {
+                            LabeledContent("停止") {
+                                Text(stoppedAt, format: .dateTime.year().month().day().hour().minute().second())
+                            }
+                        }
+                        if let lastPatchedAt = diagnostics.lastPatchedAt {
+                            LabeledContent("最后补丁") {
+                                Text(lastPatchedAt, format: .dateTime.year().month().day().hour().minute().second())
+                            }
+                        }
+                        if let mode = diagnostics.lastTargetMode {
+                            LabeledContent("最后模式", value: mode == .override ? "虚拟定位" : "真实定位透传")
+                        }
+                        LabeledContent("响应次数", value: "\(diagnostics.responseCount)")
+                        LabeledContent(
+                            "修改计数",
+                            value: "定位 \(diagnostics.locations) · Wi-Fi \(diagnostics.wifiMessages) · 基站 \(diagnostics.cellMessages)"
+                        )
+                    } else {
+                        Text("尚无 Packet Tunnel 会话记录。")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("刷新诊断") { model.refreshTunnelDiagnostics() }
+                    Button("生成无凭据诊断文件") { model.prepareDiagnosticsReport() }
+                    if let url = model.diagnosticsReportURL {
+                        ShareLink(item: url) {
+                            Label("分享诊断文件", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } header: {
+                    Text("真机诊断")
+                } footer: {
+                    Text("仅记录隧道状态和 WLOC 补丁计数，不包含节点地址、用户名、密码或配置正文；计数不能替代真实 iPhone 的定位回读与录屏。")
+                }
+
+                Section {
                     LabeledContent("设备 CA", value: model.hasDeviceCA ? "已生成" : "未生成")
                     LabeledContent("完全信任确认", value: model.caTrustConfirmed ? "已确认" : "待确认")
                     Button(model.hasDeviceCA ? "重新导出安装描述文件" : "生成安装描述文件") {
@@ -77,6 +121,7 @@ struct ProfileManagementView: View {
             }
             .navigationTitle("代理与 VPN")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } } }
+            .onAppear { model.refreshTunnelDiagnostics() }
         }
         .fileImporter(
             isPresented: $showFileImporter,
