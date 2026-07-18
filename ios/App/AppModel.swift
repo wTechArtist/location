@@ -140,7 +140,16 @@ final class AppModel: ObservableObject {
         guard let importedDraft else { return }
         do {
             try LibboxConfigurationValidator.validate(importedDraft.configuration)
-            _ = try await profileRepository.commit(importedDraft, name: name)
+            let profile = try await profileRepository.commit(importedDraft, name: name, activate: false)
+            do {
+                try await activateProfileAndReload(profile.id)
+            } catch {
+                self.importedDraft = nil
+                try? await refreshProfiles()
+                throw WlocCoreError.malformedInput(
+                    "配置已安全保存但未能启用；此前活动配置未被覆盖。\(error.localizedDescription)"
+                )
+            }
             self.importedDraft = nil
             try await refreshProfiles()
             presentMessage(title: "配置已导入", message: "凭据已写入共享 Keychain；启用指针只在完整写入成功后才切换。")
@@ -173,10 +182,10 @@ final class AppModel: ObservableObject {
         do {
             let configuration = try await profileRepository.configuration(for: id)
             try LibboxConfigurationValidator.validate(configuration)
-            try await profileRepository.activate(id)
+            try await activateProfileAndReload(id)
             try await refreshProfiles()
-            if tunnel.state == .connected { try await tunnel.restart() }
         } catch {
+            try? await refreshProfiles()
             present(error, title: "切换配置失败")
         }
     }
@@ -262,10 +271,14 @@ final class AppModel: ObservableObject {
 
     func cancelLocationCycle() async {
         guard workflow.isRunning else { return }
-        try? sharedStore.saveTarget(previousTarget)
         pendingTarget = nil
-        try? await tunnel.start()
-        workflow = .idle
+        do {
+            try sharedStore.saveTarget(previousTarget)
+            try await reloadTunnelForPersistedState()
+            workflow = .idle
+        } catch {
+            workflow = .failed("取消切换时无法完整恢复此前状态：\(error.localizedDescription)")
+        }
     }
 
     private func beginLocationCycle(target: WlocTarget) async throws {
@@ -309,12 +322,45 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func rollbackAfterFailure(_ error: Error) async {
-        try? sharedStore.saveTarget(previousTarget)
+    private func rollbackAfterFailure(_ originalError: Error) async {
         pendingTarget = nil
-        try? await tunnel.start()
-        workflow = .idle
-        present(error, title: "切换失败，已回滚")
+        do {
+            try sharedStore.saveTarget(previousTarget)
+            try await reloadTunnelForPersistedState()
+            workflow = .idle
+            present(originalError, title: "切换失败，已回滚")
+        } catch let rollbackError {
+            workflow = .failed(
+                "定位切换失败，且自动回滚未完成。原始错误：\(originalError.localizedDescription)；回滚错误：\(rollbackError.localizedDescription)"
+            )
+        }
+    }
+
+    private func activateProfileAndReload(_ id: UUID) async throws {
+        let previousProfileID = await profileRepository.activeProfileID()
+        try await profileRepository.activate(id)
+        guard tunnel.state != .disconnected, tunnel.state != .unavailable else { return }
+
+        do {
+            try await tunnel.restart()
+        } catch let activationError {
+            guard let previousProfileID, previousProfileID != id else { throw activationError }
+            do {
+                try await profileRepository.activate(previousProfileID)
+                try await reloadTunnelForPersistedState()
+            } catch let rollbackError {
+                throw WlocCoreError.malformedInput(
+                    "新配置启动失败（\(activationError.localizedDescription)），恢复此前配置也失败：\(rollbackError.localizedDescription)"
+                )
+            }
+            throw WlocCoreError.malformedInput(
+                "新配置启动失败，已恢复此前活动配置：\(activationError.localizedDescription)"
+            )
+        }
+    }
+
+    private func reloadTunnelForPersistedState() async throws {
+        try await tunnel.restart()
     }
 
     private func refreshProfiles() async throws {
