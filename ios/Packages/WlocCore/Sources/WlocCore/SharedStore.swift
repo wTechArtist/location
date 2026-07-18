@@ -6,6 +6,7 @@ public final class WlocSharedStore: @unchecked Sendable {
     public static let activeProfileKey = "wloc.active-profile.v1"
     public static let realLocationBaselineKey = "wloc.real-location-baseline.v1"
     public static let caTrustConfirmedKey = "wloc.ca-trust-confirmed.v1"
+    public static let locationCycleCheckpointKey = "wloc.location-cycle-checkpoint.v1"
 
     private let defaults: UserDefaults
     private let encoder: JSONEncoder
@@ -71,5 +72,18 @@ public final class WlocSharedStore: @unchecked Sendable {
 
     public func setCATrustConfirmed(_ confirmed: Bool) {
         defaults.set(confirmed, forKey: Self.caTrustConfirmedKey)
+    }
+
+    public func loadLocationCycleCheckpoint() throws -> LocationCycleCheckpoint? {
+        guard let data = defaults.data(forKey: Self.locationCycleCheckpointKey) else { return nil }
+        return try decoder.decode(LocationCycleCheckpoint.self, from: data)
+    }
+
+    public func saveLocationCycleCheckpoint(_ checkpoint: LocationCycleCheckpoint?) throws {
+        if let checkpoint {
+            defaults.set(try encoder.encode(checkpoint), forKey: Self.locationCycleCheckpointKey)
+        } else {
+            defaults.removeObject(forKey: Self.locationCycleCheckpointKey)
+        }
     }
 }

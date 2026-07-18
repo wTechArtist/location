@@ -85,6 +85,7 @@ final class AppModel: ObservableObject {
         }
         await tunnel.load()
         location.requestAccessAndLocation()
+        await recoverLocationCycleIfNeeded()
     }
 
     func select(_ coordinate: WlocCoordinate, name: String = "") {
@@ -247,8 +248,10 @@ final class AppModel: ObservableObject {
                 } else {
                     workflow = .failed(verification.message)
                 }
+                try? sharedStore.saveLocationCycleCheckpoint(nil)
                 self.pendingTarget = nil
             } catch {
+                try? sharedStore.saveLocationCycleCheckpoint(nil)
                 pendingTarget = nil
                 workflow = .failed("定位服务与 VPN 已开启，但无法证明定位切换生效：\(error.localizedDescription)")
             }
@@ -274,6 +277,7 @@ final class AppModel: ObservableObject {
         pendingTarget = nil
         do {
             try sharedStore.saveTarget(previousTarget)
+            try sharedStore.saveLocationCycleCheckpoint(nil)
             try await reloadTunnelForPersistedState()
             workflow = .idle
         } catch {
@@ -292,14 +296,8 @@ final class AppModel: ObservableObject {
         previousTarget = try sharedStore.loadTarget()
         pendingTarget = target
         do {
-            if target.mode == .override, previousTarget.mode == .passthrough, location.servicesEnabled {
-                let realLocation = try await location.freshLocation()
-                let coordinate = try WlocCoordinate(
-                    latitude: realLocation.coordinate.latitude,
-                    longitude: realLocation.coordinate.longitude
-                )
-                try sharedStore.saveRealLocationBaseline(.init(coordinate: coordinate, capturedAt: realLocation.timestamp))
-            }
+            try saveLocationCycleCheckpoint(stage: .waitingForLocationOff)
+            try await captureRealLocationBaselineIfNeeded(target: target, previousTarget: previousTarget)
             try await tunnel.stop()
             try sharedStore.saveTarget(target)
             if location.servicesEnabled {
@@ -316,6 +314,7 @@ final class AppModel: ObservableObject {
         workflow = .startingVPN
         do {
             try await tunnel.start()
+            try saveLocationCycleCheckpoint(stage: .waitingForLocationOn)
             workflow = .waitingForLocationOn
         } catch {
             await rollbackAfterFailure(error)
@@ -326,6 +325,7 @@ final class AppModel: ObservableObject {
         pendingTarget = nil
         do {
             try sharedStore.saveTarget(previousTarget)
+            try sharedStore.saveLocationCycleCheckpoint(nil)
             try await reloadTunnelForPersistedState()
             workflow = .idle
             present(originalError, title: "切换失败，已回滚")
@@ -361,6 +361,82 @@ final class AppModel: ObservableObject {
 
     private func reloadTunnelForPersistedState() async throws {
         try await tunnel.restart()
+    }
+
+    private func saveLocationCycleCheckpoint(stage: LocationCycleCheckpoint.Stage) throws {
+        guard let pendingTarget else {
+            throw WlocCoreError.malformedInput("缺少待恢复的定位目标")
+        }
+        try sharedStore.saveLocationCycleCheckpoint(
+            .init(stage: stage, pendingTarget: pendingTarget, previousTarget: previousTarget)
+        )
+    }
+
+    private func recoverLocationCycleIfNeeded() async {
+        let checkpoint: LocationCycleCheckpoint
+        do {
+            guard let savedCheckpoint = try sharedStore.loadLocationCycleCheckpoint() else { return }
+            checkpoint = savedCheckpoint
+        } catch {
+            try? sharedStore.saveLocationCycleCheckpoint(nil)
+            workflow = .failed("无法读取上次定位切换状态，已停止自动继续：\(error.localizedDescription)")
+            return
+        }
+
+        pendingTarget = checkpoint.pendingTarget
+        previousTarget = checkpoint.previousTarget
+        do {
+            switch checkpoint.stage {
+            case .waitingForLocationOff:
+                workflow = .preparing
+                try await tunnel.stop()
+                try await captureRealLocationBaselineIfNeeded(
+                    target: checkpoint.pendingTarget,
+                    previousTarget: checkpoint.previousTarget
+                )
+                try sharedStore.saveTarget(checkpoint.pendingTarget)
+                if location.servicesEnabled {
+                    workflow = .waitingForLocationOff
+                } else {
+                    await startVPNAfterLocationWasDisabled()
+                }
+            case .waitingForLocationOn:
+                try sharedStore.saveTarget(checkpoint.pendingTarget)
+                if tunnel.state != .connected {
+                    try await reloadTunnelForPersistedState()
+                }
+                workflow = .waitingForLocationOn
+                if location.servicesEnabled {
+                    switch location.authorizationStatus {
+                    case .authorizedAlways, .authorizedWhenInUse:
+                        await continueLocationCycle()
+                    default:
+                        break
+                    }
+                }
+            }
+        } catch {
+            await rollbackAfterFailure(error)
+        }
+    }
+
+    private func captureRealLocationBaselineIfNeeded(
+        target: WlocTarget,
+        previousTarget: WlocTarget
+    ) async throws {
+        guard target.mode == .override,
+              previousTarget.mode == .passthrough,
+              location.servicesEnabled
+        else { return }
+
+        let realLocation = try await location.freshLocation()
+        let coordinate = try WlocCoordinate(
+            latitude: realLocation.coordinate.latitude,
+            longitude: realLocation.coordinate.longitude
+        )
+        try sharedStore.saveRealLocationBaseline(
+            .init(coordinate: coordinate, capturedAt: realLocation.timestamp)
+        )
     }
 
     private func refreshProfiles() async throws {

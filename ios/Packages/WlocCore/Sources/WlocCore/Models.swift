@@ -69,6 +69,30 @@ public struct RealLocationBaseline: Codable, Hashable, Sendable {
     }
 }
 
+public struct LocationCycleCheckpoint: Codable, Hashable, Sendable {
+    public enum Stage: String, Codable, Sendable {
+        case waitingForLocationOff
+        case waitingForLocationOn
+    }
+
+    public var stage: Stage
+    public var pendingTarget: WlocTarget
+    public var previousTarget: WlocTarget
+    public var createdAt: Date
+
+    public init(
+        stage: Stage,
+        pendingTarget: WlocTarget,
+        previousTarget: WlocTarget,
+        createdAt: Date = .now
+    ) {
+        self.stage = stage
+        self.pendingTarget = pendingTarget
+        self.previousTarget = previousTarget
+        self.createdAt = createdAt
+    }
+}
+
 public enum WlocCoreError: Error, LocalizedError, Equatable, Sendable {
     case invalidLatitude(Double)
     case invalidLongitude(Double)
