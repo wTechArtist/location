@@ -328,8 +328,8 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
         result.pointee = fallback
     }
 
-    func usePlatformAutoDetectInterfaceControl() -> Bool { false }
-    func autoDetectInterfaceControl(_: Int32) throws {}
+    func usePlatformAutoDetectControl() -> Bool { false }
+    func autoDetectControl(_: Int32) throws {}
     func useProcFS() -> Bool { false }
 
     func findConnectionOwner(
@@ -392,7 +392,7 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
     func readWIFIState() -> LibboxWIFIState? { nil }
     func localDNSTransport() -> (any LibboxLocalDNSTransportProtocol)? { nil }
     func systemCertificates() -> (any LibboxStringIteratorProtocol)? { nil }
-    func sendNotification(_: LibboxNotification?) throws {}
+    func send(_: LibboxNotification?) throws {}
 
     func clearDNSCache() {
         guard let networkSettings else { return }
