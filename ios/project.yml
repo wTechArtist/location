@@ -58,6 +58,7 @@ targets:
               - wloc
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         BGTaskSchedulerPermittedIdentifiers:
