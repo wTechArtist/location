@@ -229,7 +229,7 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: options.getMTU())
 
-        let dnsServer = options.getDNSServerAddress().value
+        let dnsServer = try options.getDNSServerAddress().value
         if options.getAutoRoute(), !dnsServer.isEmpty {
             let dns = NEDNSSettings(servers: [dnsServer])
             dns.matchDomains = [""]
