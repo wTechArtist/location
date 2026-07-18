@@ -1,0 +1,6 @@
+.build/
+DerivedData/
+Wloc.xcodeproj/
+Vendor/Libbox.xcframework/
+*.xcarchive
+*.ipa

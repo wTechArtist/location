@@ -1,0 +1,9 @@
+/.gitattributes text eol=lf
+*.entitlements text eol=lf
+*.go text eol=lf
+*.md text eol=lf
+*.plist text eol=lf
+*.sh text eol=lf
+*.swift text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
