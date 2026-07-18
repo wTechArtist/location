@@ -10,14 +10,15 @@ struct SharedStoreTests {
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
 
         let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
         let coordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
-        let pending = try WlocTarget(mode: .override, coordinate: coordinate, updatedAt: .distantPast)
-        let previous = WlocTarget.passthrough
+        let pending = try WlocTarget(mode: .override, coordinate: coordinate, updatedAt: fixedDate)
+        let previous = try WlocTarget(mode: .passthrough, coordinate: nil, updatedAt: fixedDate)
         let checkpoint = LocationCycleCheckpoint(
             stage: .waitingForLocationOff,
             pendingTarget: pending,
             previousTarget: previous,
-            createdAt: .distantPast
+            createdAt: fixedDate
         )
 
         try store.saveLocationCycleCheckpoint(checkpoint)
