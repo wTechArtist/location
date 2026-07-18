@@ -81,7 +81,6 @@ targets:
       - package: WlocCore
       - framework: Vendor/Libbox.xcframework
         embed: false
-      - sdk: UIKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_IDENTIFIER).PacketTunnel

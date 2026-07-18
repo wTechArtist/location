@@ -27,15 +27,30 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   build
 
+SIMULATOR_LIST=$(xcrun simctl list devices available)
+printf '%s\n' "$SIMULATOR_LIST"
 SIMULATOR_UDID=$(
-  xcrun simctl list devices available |
-    sed -nE 's/^[[:space:]]+.*\(([0-9A-Fa-f-]{36})\) \((Shutdown|Booted)\)$/\1/p' |
-    head -n 1
+  printf '%s\n' "$SIMULATOR_LIST" |
+    awk '
+      /^-- iOS / { in_ios = 1; next }
+      /^-- / { in_ios = 0; next }
+      in_ios && /^[[:space:]]+iPhone/ && /\((Shutdown|Booted)\)/ {
+        if (match($0, /\([0-9A-Fa-f-]+\)/)) {
+          udid = substr($0, RSTART + 1, RLENGTH - 2)
+          if (length(udid) == 36) {
+            print udid
+            exit
+          }
+        }
+      }
+    '
 )
 if [ -z "$SIMULATOR_UDID" ]; then
-  echo "error: 没有可用的 iOS Simulator，无法执行集成测试。" >&2
+  echo "error: 没有识别到可用的 iPhone Simulator，无法执行集成测试。" >&2
   exit 1
 fi
+
+echo "Using iPhone Simulator: $SIMULATOR_UDID"
 
 xcodebuild \
   -project "$IOS_DIR/Wloc.xcodeproj" \
