@@ -238,7 +238,7 @@ final class AppModel: ObservableObject {
                 } else {
                     workflow = .failed(verification.message)
                 }
-                pendingTarget = nil
+                self.pendingTarget = nil
             } catch {
                 pendingTarget = nil
                 workflow = .failed("定位服务与 VPN 已开启，但无法证明定位切换生效：\(error.localizedDescription)")

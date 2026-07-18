@@ -50,19 +50,29 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         throw LocationMonitorError.timeout
     }
 
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
-        if manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse {
-            manager.requestLocation()
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            authorizationStatus = status
+            if status == .authorizedAlways || status == .authorizedWhenInUse {
+                self.manager.requestLocation()
+            }
         }
     }
 
-    func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        lastLocation = locations.last
+    nonisolated func locationManager(_: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        let latestLocation = locations.last
+        Task { @MainActor [weak self] in
+            self?.lastLocation = latestLocation
+        }
     }
 
-    func locationManager(_: CLLocationManager, didFailWithError error: Error) {
-        errorMessage = error.localizedDescription
+    nonisolated func locationManager(_: CLLocationManager, didFailWithError error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor [weak self] in
+            self?.errorMessage = message
+        }
     }
 }
 
