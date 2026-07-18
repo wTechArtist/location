@@ -105,6 +105,7 @@ struct MapHomeView: View {
                 Button("恢复真实定位", role: .destructive) {
                     Task { await model.restoreRealLocation() }
                 }
+                .disabled(model.workflow.isRunning)
                 Button("确定定位") {
                     Task { await model.applySelectedLocation() }
                 }
