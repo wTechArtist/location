@@ -440,7 +440,7 @@ private extension ShadowrocketImporter {
                 issues.append(issue(.error, line, "不支持的规则类型：\(kind)"))
                 continue
             }
-            var rule: [String: Any] = [key: [value], "outbound": target]
+            let rule: [String: Any] = [key: [value], "outbound": target]
             if parts.dropFirst(3).contains(where: { $0.lowercased() == "no-resolve" }) {
                 issues.append(issue(.information, line, "no-resolve 不需要写入 sing-box 路由，规则匹配保持不变。"))
             }
@@ -586,7 +586,7 @@ private extension ShadowrocketImporter {
 
     static func bool(_ value: String?) -> Bool? {
         guard let value else { return nil }
-        switch value.lowercased() {
+        return switch value.lowercased() {
         case "true", "yes", "1", "on": true
         case "false", "no", "0", "off": false
         default: nil
