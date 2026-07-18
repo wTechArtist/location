@@ -18,6 +18,7 @@ settings:
     APP_GROUP_IDENTIFIER: group.com.example.wloc
     BASE_BUNDLE_IDENTIFIER: com.example.wloc
     KEYCHAIN_ACCESS_GROUP: $(AppIdentifierPrefix)$(BASE_BUNDLE_IDENTIFIER).shared
+    TARGETED_DEVICE_FAMILY: 1
   configs:
     Debug:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -61,6 +62,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         BGTaskSchedulerPermittedIdentifiers:
           - $(BASE_BUNDLE_IDENTIFIER).profile-refresh
+        UILaunchScreen: {}
         WlocAppGroupIdentifier: $(APP_GROUP_IDENTIFIER)
         WlocKeychainAccessGroup: $(KEYCHAIN_ACCESS_GROUP)
     entitlements:
