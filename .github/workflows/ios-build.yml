@@ -1,0 +1,33 @@
+name: iOS build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "ios/**"
+  push:
+    branches:
+      - "codex/ios-standalone-app"
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "ios/**"
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build pinned Libbox and test iOS targets
+        run: ios/scripts/test-macos.sh

@@ -22,7 +22,7 @@ open Wloc.xcodeproj
 
 先安装 Go 与 XcodeGen。脚本会检出 `scripts/libbox-version.txt` 固定的 sing-box 标签，从源码构建 `Libbox.xcframework`，并生成 Xcode 工程。随后在 `project.yml` 或本地 Xcode 配置中填写开发团队、唯一 Bundle ID 与 App Group。
 
-可用 `./scripts/test-macos.sh` 运行 Swift Package 测试和 iOS Simulator 构建测试。真机归档与验收仍须按 `docs/ios-acceptance.md` 完成，模拟器结果不能替代真机证据。
+可用 `./scripts/test-macos.sh` 运行 Swift Package 测试、关闭签名的设备架构构建和 iOS Simulator 集成测试；`.github/workflows/ios-build.yml` 会在 macOS runner 上执行同一脚本。真机归档与验收仍须按 `docs/ios-acceptance.md` 完成，CI/模拟器结果不能替代真机证据。
 
 ## 重要状态
 
