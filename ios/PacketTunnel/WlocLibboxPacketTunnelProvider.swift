@@ -229,6 +229,7 @@ private enum PacketTunnelError: Error, LocalizedError {
     case mitmStartupFailed
     case libboxStartupFailed
     case networkMonitorTimeout
+    case networkSettingsTimeout
     case missingTunInbound
     case invalidConfiguration
     case emptyWlocResponse
@@ -243,6 +244,7 @@ private enum PacketTunnelError: Error, LocalizedError {
         case .mitmStartupFailed: "WLOC 本地 TLS 代理启动失败。"
         case .libboxStartupFailed: "Libbox 代理服务启动失败。"
         case .networkMonitorTimeout: "等待系统网络接口状态超时。"
+        case .networkSettingsTimeout: "应用 Packet Tunnel 网络设置超时。"
         case .missingTunInbound: "配置缺少 tun 入站。"
         case .invalidConfiguration: "无法生成 Packet Tunnel 配置。"
         case .emptyWlocResponse: "WLOC 响应正文为空。"
@@ -260,11 +262,12 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
     }
 
     func openTun(_ options: LibboxTunOptionsProtocol?, ret0_: UnsafeMutablePointer<Int32>?) throws {
-        try runBlocking { [self] in try await openTun(options, result: ret0_) }
+        guard let options, let result = ret0_ else { throw PacketTunnelError.invalidConfiguration }
+        let fileDescriptor = try runBlocking { [self] in try await openTun(options) }
+        result.pointee = fileDescriptor
     }
 
-    private func openTun(_ options: LibboxTunOptionsProtocol?, result: UnsafeMutablePointer<Int32>?) async throws {
-        guard let options, let result else { throw PacketTunnelError.invalidConfiguration }
+    private func openTun(_ options: LibboxTunOptionsProtocol) async throws -> Int32 {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: options.getMTU())
 
@@ -357,12 +360,11 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
         networkSettings = settings
         try await tunnel.setTunnelNetworkSettings(settings)
         if let fileDescriptor = tunnel.packetFlow.value(forKeyPath: "socket.fileDescriptor") as? Int32 {
-            result.pointee = fileDescriptor
-            return
+            return fileDescriptor
         }
         let fallback = LibboxGetTunnelFileDescriptor()
         guard fallback != -1 else { throw PacketTunnelError.libboxStartupFailed }
-        result.pointee = fallback
+        return fallback
     }
 
     func usePlatformAutoDetectControl() -> Bool { false }
@@ -492,25 +494,22 @@ private final class WlocNetworkInterfaceIterator: NSObject, LibboxNetworkInterfa
     }
 }
 
-private func runBlocking<T>(_ operation: @escaping () async throws -> T) throws -> T {
+private func runBlocking<T>(
+    timeout: DispatchTimeInterval = .seconds(15),
+    _ operation: @escaping () async throws -> T
+) throws -> T {
     let semaphore = DispatchSemaphore(value: 0)
     let box = WlocBlockingResult<T>()
-    Task.detached(priority: .userInitiated) {
+    let task = Task.detached(priority: .userInitiated) {
         do { box.result = .success(try await operation()) }
         catch { box.result = .failure(error) }
         semaphore.signal()
     }
-    semaphore.wait()
-    return try box.result.get()
-}
-
-private func runBlocking(_ operation: @escaping () async -> Void) {
-    let semaphore = DispatchSemaphore(value: 0)
-    Task.detached(priority: .userInitiated) {
-        await operation()
-        semaphore.signal()
+    guard semaphore.wait(timeout: .now() + timeout) == .success else {
+        task.cancel()
+        throw PacketTunnelError.networkSettingsTimeout
     }
-    semaphore.wait()
+    return try box.result.get()
 }
 
 private final class WlocBlockingResult<T>: @unchecked Sendable {
