@@ -16,7 +16,7 @@ for tool in ditto file plutil shasum xcodebuild xcodegen; do
   fi
 done
 
-BASE_BUNDLE_IDENTIFIER=${WLOC_BASE_BUNDLE_IDENTIFIER:-com.example.wloc}
+BASE_BUNDLE_IDENTIFIER=${WLOC_BASE_BUNDLE_IDENTIFIER:-com.weiweiliang.wloc.schemea}
 if ! printf '%s' "$BASE_BUNDLE_IDENTIFIER" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9.-]+$'; then
   echo "error: WLOC_BASE_BUNDLE_IDENTIFIER 不是有效的 Bundle ID。" >&2
   exit 1

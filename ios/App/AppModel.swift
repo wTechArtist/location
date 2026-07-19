@@ -207,6 +207,7 @@ final class AppModel: ObservableObject {
             let device = UIDevice.current
             let report = DiagnosticsReport(
                 exportedAt: .now,
+                bundleIdentifier: Bundle.main.bundleIdentifier ?? "unknown",
                 appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
                 appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
                 deviceModel: device.model,
@@ -216,6 +217,11 @@ final class AppModel: ObservableObject {
                 setupConfirmed: shadowrocketSetupConfirmed,
                 lastCommand: shadowrocketLastCommand,
                 moduleStatus: moduleStatus,
+                locationServicesEnabled: location.servicesEnabled,
+                locationAuthorizationStatus: locationAuthorizationLabel,
+                locationAccuracyAuthorization: locationAccuracyAuthorizationLabel,
+                lastLocationTimestamp: location.lastLocation?.timestamp,
+                lastLocationError: location.errorMessage,
                 currentTarget: try store.loadTarget(),
                 remoteTarget: remoteTarget,
                 locationVerification: locationVerification
@@ -276,6 +282,7 @@ final class AppModel: ObservableObject {
 
     func resumeAfterReturningFromSettings() async {
         refreshShadowrocketAvailability()
+        location.refreshAuthorizationAndLocation()
         switch workflow {
         case .waitingForLocationOff where !location.servicesEnabled:
             await startShadowrocketAfterLocationWasDisabled()
@@ -507,6 +514,25 @@ final class AppModel: ObservableObject {
         String(format: "%.6f, %.6f", coordinate.latitude, coordinate.longitude)
     }
 
+    private var locationAuthorizationLabel: String {
+        switch location.authorizationStatus {
+        case .notDetermined: "notDetermined"
+        case .restricted: "restricted"
+        case .denied: "denied"
+        case .authorizedAlways: "authorizedAlways"
+        case .authorizedWhenInUse: "authorizedWhenInUse"
+        @unknown default: "unknown(\(location.authorizationStatus.rawValue))"
+        }
+    }
+
+    private var locationAccuracyAuthorizationLabel: String {
+        switch location.accuracyAuthorization {
+        case .fullAccuracy: "fullAccuracy"
+        case .reducedAccuracy: "reducedAccuracy"
+        @unknown default: "unknown"
+        }
+    }
+
     private func present(_ error: Error, title: String) {
         alert = AlertMessage(title: title, message: error.localizedDescription)
     }
@@ -528,8 +554,9 @@ private extension WlocTarget {
 }
 
 private struct DiagnosticsReport: Encodable {
-    let schemaVersion = 3
+    let schemaVersion = 4
     var exportedAt: Date
+    var bundleIdentifier: String
     var appVersion: String
     var appBuild: String
     var deviceModel: String
@@ -539,6 +566,11 @@ private struct DiagnosticsReport: Encodable {
     var setupConfirmed: Bool
     var lastCommand: String
     var moduleStatus: String
+    var locationServicesEnabled: Bool
+    var locationAuthorizationStatus: String
+    var locationAccuracyAuthorization: String
+    var lastLocationTimestamp: Date?
+    var lastLocationError: String?
     var currentTarget: WlocTarget
     var remoteTarget: WlocTarget?
     var locationVerification: LocationVerificationEvidence?

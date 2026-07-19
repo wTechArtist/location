@@ -27,6 +27,11 @@ xcodebuild \
   build
 
 DEVICE_APP="$IOS_DIR/DerivedData-Device/Build/Products/Debug-iphoneos/WLOC.app"
+DEVICE_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DEVICE_APP/Info.plist")
+if [ "$DEVICE_BUNDLE_ID" != "com.weiweiliang.wloc.schemea" ]; then
+  echo "error: 默认 Bundle ID 漂移：$DEVICE_BUNDLE_ID" >&2
+  exit 1
+fi
 if [ ! -f "$DEVICE_APP/wloc.module" ]; then
   echo "error: 真机架构产物缺少内置 wloc.module。" >&2
   exit 1
@@ -39,7 +44,7 @@ if find "$DEVICE_APP" -iname '*libbox*' -print -quit | grep . >/dev/null 2>&1; t
   echo "error: 方案 A 的真机架构产物意外包含 Libbox。" >&2
   exit 1
 fi
-echo "Verified: device app embeds wloc.module and contains no App Extension or Libbox."
+echo "Verified: stable Bundle ID, embedded wloc.module, no App Extension or Libbox."
 
 SIMULATOR_LIST=$(xcrun simctl list devices available)
 printf '%s\n' "$SIMULATOR_LIST"

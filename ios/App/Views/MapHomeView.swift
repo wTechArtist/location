@@ -34,6 +34,7 @@ struct MapHomeView: View {
                     else { return }
                     model.select(target)
                 }
+                .accessibilityIdentifier("wloc.map")
                 .ignoresSafeArea(edges: .top)
             }
             .overlay(alignment: .top) { topControls }
@@ -52,18 +53,22 @@ struct MapHomeView: View {
                 Label("搜索", systemImage: "magnifyingglass")
             }
             .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("wloc.search")
 
             Spacer()
 
             Button { model.selectCurrentDeviceLocation() } label: {
                 Image(systemName: "location.fill")
             }
+            .accessibilityIdentifier("wloc.current-location")
             Button { showPlaces = true } label: {
                 Image(systemName: "star.fill")
             }
+            .accessibilityIdentifier("wloc.saved-places")
             Button { showProfiles = true } label: {
                 Image(systemName: "network")
             }
+            .accessibilityIdentifier("wloc.settings")
         }
         .buttonStyle(.bordered)
         .padding()
@@ -82,6 +87,7 @@ struct MapHomeView: View {
                         Text(String(format: "%.6f, %.6f", coordinate.latitude, coordinate.longitude))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("wloc.selected-coordinate")
                     } else {
                         Text("点击地图选择目标位置")
                             .font(.caption)
@@ -105,11 +111,13 @@ struct MapHomeView: View {
                 Button("恢复真实定位", role: .destructive) {
                     Task { await model.restoreRealLocation() }
                 }
+                .accessibilityIdentifier("wloc.restore-location")
                 .disabled(model.workflow.isRunning)
                 Button("确定定位") {
                     Task { await model.applySelectedLocation() }
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("wloc.apply-location")
                 .disabled(model.selectedCoordinate == nil || model.workflow.isRunning)
             }
             .buttonStyle(.bordered)
@@ -125,12 +133,16 @@ struct MapHomeView: View {
             EmptyView()
         case .preparing:
             WorkflowPanel(title: "正在准备", message: "正在通过 Shadowrocket 模块写入并回查目标坐标。", showsProgress: true)
+                .accessibilityIdentifier("wloc.workflow.preparing")
         case .startingVPN:
             WorkflowPanel(title: "正在连接 Shadowrocket", message: "WLOC 正在向 Shadowrocket 发出连接指令。iOS 可能会暂时切换到 Shadowrocket。", showsProgress: true)
+                .accessibilityIdentifier("wloc.workflow.starting-vpn")
         case .verifying:
             WorkflowPanel(title: "正在核验定位", message: "正在回查 Shadowrocket 模块，并把新的系统定位与目标坐标或真实位置基线做距离比对。", showsProgress: true)
+                .accessibilityIdentifier("wloc.workflow.verifying")
         case .rollingBack:
             WorkflowPanel(title: "正在回滚", message: "正在重新连接 Shadowrocket 并恢复操作前的模块坐标状态。", showsProgress: true)
+                .accessibilityIdentifier("wloc.workflow.rolling-back")
         case .waitingForLocationOff:
             WorkflowPanel(
                 title: "请关闭系统定位服务",
@@ -139,6 +151,7 @@ struct MapHomeView: View {
                 primaryAction: { Task { await model.continueLocationCycle() } },
                 cancelAction: { Task { await model.cancelLocationCycle() } }
             )
+            .accessibilityIdentifier("wloc.workflow.location-off")
         case .waitingForLocationOn:
             WorkflowPanel(
                 title: "请重新开启定位服务",
@@ -147,6 +160,7 @@ struct MapHomeView: View {
                 primaryAction: { Task { await model.continueLocationCycle() } },
                 cancelAction: { Task { await model.cancelLocationCycle() } }
             )
+            .accessibilityIdentifier("wloc.workflow.location-on")
         case let .completed(message):
             WorkflowPanel(
                 title: "切换完成",
@@ -154,6 +168,7 @@ struct MapHomeView: View {
                 primaryTitle: "完成",
                 primaryAction: { model.dismissFinishedWorkflow() }
             )
+            .accessibilityIdentifier("wloc.workflow.completed")
         case let .failed(message):
             WorkflowPanel(
                 title: "未能验证切换生效",
@@ -161,6 +176,7 @@ struct MapHomeView: View {
                 primaryTitle: "知道了",
                 primaryAction: { model.dismissFinishedWorkflow() }
             )
+            .accessibilityIdentifier("wloc.workflow.failed")
         }
     }
 }
@@ -183,10 +199,12 @@ private struct WorkflowPanel: View {
                 if let primaryTitle, let primaryAction {
                     Button(primaryTitle, action: primaryAction)
                         .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("wloc.workflow.primary")
                 }
                 if let cancelAction {
                     Button("取消并回滚", role: .cancel, action: cancelAction)
                         .buttonStyle(.bordered)
+                        .accessibilityIdentifier("wloc.workflow.cancel")
                 }
             }
             .padding(24)

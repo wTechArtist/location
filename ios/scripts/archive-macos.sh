@@ -25,7 +25,7 @@ if ! printf '%s' "$DEVELOPMENT_TEAM" | grep -Eq '^[A-Za-z0-9]{10}$'; then
   exit 1
 fi
 if ! printf '%s' "$BASE_BUNDLE_IDENTIFIER" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9.-]+$'; then
-  echo "error: 请通过 WLOC_BASE_BUNDLE_IDENTIFIER 提供唯一 Bundle ID，例如 com.example.wloc。" >&2
+  echo "error: 请通过 WLOC_BASE_BUNDLE_IDENTIFIER 提供唯一 Bundle ID，例如 com.weiweiliang.wloc.schemea。" >&2
   exit 1
 fi
 case "$EXPORT_METHOD" in

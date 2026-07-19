@@ -16,9 +16,11 @@ struct ProfileManagementView: View {
                     LabeledContent("模块通信", value: model.moduleStatus)
                     LabeledContent("最近指令", value: model.shadowrocketLastCommand)
                     Button("打开 Shadowrocket") { Task { await model.openShadowrocket() } }
+                        .accessibilityIdentifier("wloc.settings.open-shadowrocket")
                     Button("检测 WLOC 模块") {
                         Task { await model.refreshShadowrocketModuleStatus(showErrors: true) }
                     }
+                    .accessibilityIdentifier("wloc.settings.detect-module")
                 } header: {
                     Text("运行状态")
                 } footer: {
@@ -35,11 +37,13 @@ struct ProfileManagementView: View {
                         } label: {
                             Label("1. 一键安装 WLOC 模块", systemImage: "wand.and.stars")
                         }
+                        .accessibilityIdentifier("wloc.settings.install-module")
                         Button {
                             Task { await model.refreshShadowrocketModuleStatus(showErrors: true) }
                         } label: {
                             Label("2. 检测并完成设置", systemImage: "checkmark.circle")
                         }
+                        .accessibilityIdentifier("wloc.settings.finish-setup")
                     }
                     if let moduleURL = model.moduleFileURL {
                         ShareLink(item: moduleURL) {
@@ -112,6 +116,7 @@ struct ProfileManagementView: View {
                 }
             }
             .navigationTitle("Shadowrocket 设置")
+            .accessibilityIdentifier("wloc.settings.screen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
             }
