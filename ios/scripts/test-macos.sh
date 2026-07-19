@@ -9,6 +9,11 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 1
 fi
 
+for script in bootstrap-macos.sh archive-macos.sh test-macos.sh; do
+  sh -n "$SCRIPT_DIR/$script"
+done
+echo "Verified: iOS shell scripts pass syntax checks."
+
 if [ ! -d "$IOS_DIR/Vendor/Libbox.xcframework" ]; then
   "$SCRIPT_DIR/bootstrap-macos.sh"
 fi
