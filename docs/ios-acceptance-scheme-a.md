@@ -18,10 +18,13 @@
 
 ## 地图与配置导入
 
-- [ ] 地图点击/长按、搜索、当前位置、收藏与历史记录可用。
+- [x] 地图点击选点、坐标文本解析、MapKit 搜索、当前位置和收藏写入/回选可用。
+- [ ] 地图长按选点可用。
+- [ ] 历史记录可查看、回选和清理。
 - [ ] 文件选择器可选择配置文件，并通过系统分享面板交给 Shadowrocket。
 - [ ] WLOC 仅显示“已交给 Shadowrocket”，最终导入成功必须以 Shadowrocket 的确认界面为准。
-- [ ] 取消文件选择、取消分享或 Shadowrocket 拒绝配置时，WLOC 不得显示导入成功。
+- [x] 取消文件选择时，WLOC 不得显示读取失败或导入成功，待分享状态保持不变。
+- [ ] 取消系统分享或 Shadowrocket 拒绝配置时，WLOC 不得显示导入成功。
 
 ## 设置虚拟定位
 
@@ -61,7 +64,7 @@
 - 恢复定位：模块持久化坐标已清除；再次完成定位服务关闭/开启后，新真实位置与原虚拟位置相距 `2,793,306 米`，最终界面恢复“模块可用 · 真实定位透传”。
 - 最终状态：系统定位服务处于开启；恢复后的真实定位蓝点重新出现。恢复后仍能取得 Shadowrocket 模块响应，证明本轮模块/MITM 通路已重新工作；iOS 不允许 WLOC 读取另一个 App 的 VPN 开关，因此不把该响应伪称为直接 VPN 状态读取。
 - 原始证据：`C:\Users\weg\AppData\Local\WlocAutomation\evidence\full-location-roundtrip-20260719-final`，包含 `result.json` 及 15 组关键阶段 PNG 截图与 XML 可访问性树。
-- 地图补充验收：场景 `map-features` 退出码 0；真机完成坐标文本解析、收藏写入/回选/清理、MapKit 搜索“广州塔”并选中，以及“当前位置”回到 `23.175781, 113.417583`。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\map-features-20260719-d`，包含 `result.json` 及 7 组 PNG/XML。由于产品尚无独立“历史记录”界面，合并表述为“地图、搜索、当前位置、收藏与历史记录”的复选框仍保持未勾选。
-- 配置取消验收：场景 `config-picker-cancel` 退出码 0；真实 iOS“文件”选择器成功打开并取消，返回 WLOC 后待分享配置状态未改变，也未误报读取失败或导入成功。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\config-picker-cancel-20260719-a`，包含 `result.json` 及 2 组 PNG/XML。真实配置选择、分享及 Shadowrocket 确认尚未执行，因此相关复选框保持未勾选。
+- 地图补充验收：场景 `map-features` 退出码 0；真机完成坐标文本解析、收藏写入/回选/清理、MapKit 搜索“广州塔”并选中，以及“当前位置”回到 `23.175781, 113.417583`。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\map-features-20260719-d`，包含 `result.json` 及 7 组 PNG/XML。地图长按和独立历史记录尚未实现/验证，保持未勾选。
+- 配置取消验收：场景 `config-picker-cancel` 退出码 0；真实 iOS“文件”选择器成功打开并取消，返回 WLOC 后待分享配置状态未改变，也未误报读取失败或导入成功。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\config-picker-cancel-20260719-a`，包含 `result.json` 及 2 组 PNG/XML。真实配置选择、系统分享取消/Shadowrocket 拒绝和最终确认尚未执行，保持未勾选。
 
 当前结论：核心定位往返链路已在真实 iPhone 上自动化通过，包括模块检测、地图选点、虚拟定位核验、恢复真实定位以及两轮系统定位服务关/开。配置文件真实导入、蜂窝网络/常用 App 验证、失败场景和 20 次稳定性循环仍未执行，对应复选框保持未勾选，因此暂不声明“全部验收完成”。
