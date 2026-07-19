@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: Test Shadowrocket module scripts
+        run: node ios/scripts/test-shadowrocket-module.mjs
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Test Shadowrocket-based iOS app
