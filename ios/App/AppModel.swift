@@ -366,10 +366,7 @@ final class AppModel: ObservableObject {
         }
         workflow = .verifying
         do {
-            let confirmed = try await bridge.currentTarget()
-            guard confirmed.sameRemoteValue(as: pendingTarget) else {
-                throw ShadowrocketWlocBridgeError.targetMismatch(expected: pendingTarget, actual: confirmed)
-            }
+            let confirmed = try await waitForRemoteTarget(pendingTarget)
             remoteTarget = confirmed
             moduleStatus = pendingTarget.mode == .override ? "模块可用 · 已保存坐标" : "模块可用 · 真实定位透传"
             let actualLocation = try await location.freshLocation()
@@ -395,6 +392,24 @@ final class AppModel: ObservableObject {
             self.pendingTarget = nil
             workflow = .failed("无法证明定位切换生效：\(error.localizedDescription)")
         }
+    }
+
+    private func waitForRemoteTarget(_ expected: WlocTarget) async throws -> WlocTarget {
+        var lastError: Error?
+        for attempt in 0..<8 {
+            do {
+                let actual = try await bridge.currentTarget()
+                guard actual.sameRemoteValue(as: expected) else {
+                    throw ShadowrocketWlocBridgeError.targetMismatch(expected: expected, actual: actual)
+                }
+                return actual
+            } catch {
+                lastError = error
+                guard attempt < 7 else { break }
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
+        throw lastError ?? ShadowrocketWlocBridgeError.invalidHTTPResponse
     }
 
     private func rollbackAfterFailure(_ originalError: Error) async {
