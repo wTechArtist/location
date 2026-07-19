@@ -81,6 +81,6 @@ py -m venv .venv-wloc-device
   --output-dir <证据目录>
 ```
 
-脚本退出码为 0 才算本轮通过，并在证据目录写入 `result.json`、每个关键阶段的 PNG 截图和 XML 可访问性树。若中途失败，脚本会尽力把系统定位服务恢复为开启状态；仍应人工核对最终状态。
+脚本退出码为 0 才算本轮通过，并在证据目录写入 `result.json`、每个关键阶段的 PNG 截图和 XML 可访问性树。WebDriverAgent 在场景开始前握手失败时默认安全重试一次，可用 `--startup-attempts` 调整；场景执行失败也会写入包含错误类型和原因的 `result.json`。若中途失败，脚本会尽力把系统定位服务恢复为开启状态；仍应人工核对最终状态。
 
 地图功能单独验收可将场景改为 `--scenario map-features`。该场景会删除自己创建的临时收藏，不会修改 Shadowrocket 配置。`--scenario config-picker-cancel` 用于验证系统文件选择器的打开与取消，也不会选择或导入任何配置。

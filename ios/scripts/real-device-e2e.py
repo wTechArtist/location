@@ -22,6 +22,10 @@ from pymobiledevice3.services.wda import DEFAULT_WDA_PORT, WdaServiceClient
 from pymobiledevice3.exceptions import WdaError
 
 
+class WdaStartupError(RuntimeError):
+    """Raised only before the first app session, when replaying a scenario is still safe."""
+
+
 class DirectRsdProvider:
     """Keep WDA traffic on the userspace RSD dialer instead of usbmux port forwarding."""
 
@@ -948,13 +952,16 @@ async def run_probe(args: argparse.Namespace) -> dict:
         config = await TestConfig.create_for(rsd, runner_bundle_id=args.runner_bundle_id)
         runner_task = asyncio.create_task(XCUITestService(rsd).run(config), name="wloc-wda-runner")
         try:
-            await asyncio.sleep(2)
-            await wait_for_wda(rsd, runner_task)
-            trace("WebDriverAgent port is open")
-            client = WdaServiceClient(service_provider=DirectRsdProvider(rsd), timeout=args.timeout)
-            status = await wait_for_wda_status(client, runner_task)
-            trace("WebDriverAgent status is ready")
-            session_id = await start_app_session(client, args.app_bundle_id)
+            try:
+                await asyncio.sleep(2)
+                await wait_for_wda(rsd, runner_task)
+                trace("WebDriverAgent port is open")
+                client = WdaServiceClient(service_provider=DirectRsdProvider(rsd), timeout=args.timeout)
+                status = await wait_for_wda_status(client, runner_task)
+                trace("WebDriverAgent status is ready")
+                session_id = await start_app_session(client, args.app_bundle_id)
+            except Exception as error:
+                raise WdaStartupError(f"WebDriverAgent startup failed: {error}") from error
             if args.scenario == "grant-location":
                 evidence = await grant_location_permission(client, session_id, output_dir)
             elif args.scenario == "global-probe":
@@ -1008,6 +1015,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument(
+        "--startup-attempts",
+        type=int,
+        default=2,
+        help="retry WebDriverAgent startup before a scenario begins (default: 2)",
+    )
+    parser.add_argument(
         "--scenario",
         choices=(
             "probe",
@@ -1024,18 +1037,53 @@ def parse_args() -> argparse.Namespace:
         ),
         default="probe",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.startup_attempts < 1:
+        parser.error("--startup-attempts must be at least 1")
+    return args
 
 
-def main() -> None:
-    args = parse_args()
-    result = asyncio.run(run_probe(args))
-    result_path = Path(args.output_dir).resolve() / "result.json"
+def write_result(output_dir: Path, result: dict) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result_path = output_dir / "result.json"
     result_path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def run_with_startup_retries(args: argparse.Namespace, run_once=None) -> dict:
+    if run_once is None:
+        run_once = run_probe
+    for attempt in range(1, args.startup_attempts + 1):
+        try:
+            return asyncio.run(run_once(args))
+        except WdaStartupError as error:
+            if attempt == args.startup_attempts:
+                raise
+            trace(f"startup attempt {attempt}/{args.startup_attempts} failed; retrying: {error}")
+    raise AssertionError("startup attempt loop exited unexpectedly")
+
+
+def main() -> None:
+    args = parse_args()
+    output_dir = Path(args.output_dir).resolve()
+    try:
+        result = run_with_startup_retries(args)
+        write_result(output_dir, result)
+    except Exception as error:
+        write_result(
+            output_dir,
+            {
+                "timestamp": int(time.time()),
+                "scenario": args.scenario,
+                "succeeded": False,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            },
+        )
+        raise
 
 
 if __name__ == "__main__":
