@@ -191,7 +191,7 @@ func TestLocalProxyInterceptsTLSAndPatchesResponse(t *testing.T) {
 		ForceAttemptHTTP2: true,
 		TLSClientConfig:   &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots},
 	}}
-	response, err := client.Get("https://gs-loc.apple.com/location")
+	response, err := client.Get("https://gs-loc.apple.com/clls/wloc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,5 +205,21 @@ func TestLocalProxyInterceptsTLSAndPatchesResponse(t *testing.T) {
 	}
 	if patcher.calls != 1 {
 		t.Fatalf("expected one patch callback, got %d", patcher.calls)
+	}
+
+	passthroughResponse, err := client.Get("https://gs-loc.apple.com/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer passthroughResponse.Body.Close()
+	passthroughBody, err := io.ReadAll(passthroughResponse.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(passthroughBody) != "protobuf" {
+		t.Fatalf("unexpected non-WLOC body %q", passthroughBody)
+	}
+	if patcher.calls != 1 {
+		t.Fatalf("non-WLOC path unexpectedly invoked patcher; calls=%d", patcher.calls)
 	}
 }

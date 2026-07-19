@@ -342,6 +342,9 @@ func (p *WlocProxy) roundTrip(request *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("WLOC upstream request: %w", err)
 	}
+	if !isWlocLocationPath(request.URL.Path) {
+		return response, nil
+	}
 	body, err := readResponseBody(response)
 	if err != nil {
 		_ = response.Body.Close()
@@ -442,6 +445,10 @@ func randomSerial() (*big.Int, error) {
 func isAllowedWlocHost(host string) bool {
 	_, allowed := allowedWlocHosts[host]
 	return allowed
+}
+
+func isWlocLocationPath(path string) bool {
+	return path == "/clls/wloc"
 }
 
 func writeProxyError(writer io.Writer, status int, message string) {
