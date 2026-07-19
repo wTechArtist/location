@@ -40,9 +40,12 @@ case "$EXPORT_METHOD" in
   ad-hoc)
     EXPORT_METHOD=release-testing
     ;;
-  debugging|release-testing) ;;
+  app-store)
+    EXPORT_METHOD=app-store-connect
+    ;;
+  debugging|release-testing|app-store-connect) ;;
   *)
-    echo "error: WLOC_EXPORT_METHOD 仅支持 debugging 或 release-testing（也兼容 development/ad-hoc 旧名）。" >&2
+    echo "error: WLOC_EXPORT_METHOD 仅支持 debugging、release-testing 或 app-store-connect（也兼容 development/ad-hoc/app-store 旧名）。" >&2
     exit 1
     ;;
 esac

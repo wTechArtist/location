@@ -30,9 +30,9 @@ open Wloc.xcodeproj
 export WLOC_DEVELOPMENT_TEAM="你的10位TeamID"
 export WLOC_BASE_BUNDLE_IDENTIFIER="你的唯一BundleID"
 export WLOC_APP_GROUP_IDENTIFIER="group.你的唯一BundleID"
-# 可选：debugging（默认）或 release-testing
-# 也兼容 Xcode 旧名 development / ad-hoc
-export WLOC_EXPORT_METHOD="debugging"
+# 可选：debugging（默认）、release-testing 或 app-store-connect
+# 也兼容 Xcode 旧名 development / ad-hoc / app-store
+export WLOC_EXPORT_METHOD="app-store-connect" # TestFlight；真机直装可用 debugging
 ./scripts/archive-macos.sh
 ```
 

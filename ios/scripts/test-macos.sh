@@ -15,7 +15,7 @@ done
 echo "Verified: iOS shell scripts pass syntax checks."
 
 XCODEBUILD_HELP=$(xcodebuild -help 2>&1)
-for export_method in debugging release-testing; do
+for export_method in debugging release-testing app-store-connect; do
   if ! printf '%s\n' "$XCODEBUILD_HELP" | grep -F "$export_method" >/dev/null 2>&1; then
     echo "error: 当前 Xcode 未声明支持 $export_method 导出方式。" >&2
     exit 1
