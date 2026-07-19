@@ -228,6 +228,7 @@ private enum PacketTunnelError: Error, LocalizedError {
     case missingCATrustConfirmation
     case mitmStartupFailed
     case libboxStartupFailed
+    case networkMonitorTimeout
     case missingTunInbound
     case invalidConfiguration
     case emptyWlocResponse
@@ -241,6 +242,7 @@ private enum PacketTunnelError: Error, LocalizedError {
         case .missingCATrustConfirmation: "尚未确认本设备 WLOC CA 已安装并完全信任。"
         case .mitmStartupFailed: "WLOC 本地 TLS 代理启动失败。"
         case .libboxStartupFailed: "Libbox 代理服务启动失败。"
+        case .networkMonitorTimeout: "等待系统网络接口状态超时。"
         case .missingTunInbound: "配置缺少 tun 入站。"
         case .invalidConfiguration: "无法生成 Packet Tunnel 配置。"
         case .emptyWlocResponse: "WLOC 响应正文为空。"
@@ -397,7 +399,11 @@ private final class WlocPlatformInterface: NSObject, LibboxPlatformInterfaceProt
             if first { first = false; ready.signal() }
         }
         monitor.start(queue: .global(qos: .userInitiated))
-        ready.wait()
+        guard ready.wait(timeout: .now() + .seconds(10)) == .success else {
+            monitor.cancel()
+            pathMonitor = nil
+            throw PacketTunnelError.networkMonitorTimeout
+        }
     }
 
     func closeDefaultInterfaceMonitor(_: LibboxInterfaceUpdateListenerProtocol?) throws {
