@@ -6,6 +6,7 @@ struct ProfileManagementView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var showFileImporter = false
+    @State private var showTextImporter = false
     @State private var showImportPreview = false
 
     var body: some View {
@@ -17,8 +18,14 @@ struct ProfileManagementView: View {
                     } label: {
                         Label("导入配置文件", systemImage: "square.and.arrow.down")
                     }
+                    Button {
+                        model.importedDraft = nil
+                        showTextImporter = true
+                    } label: {
+                        Label("粘贴配置文本", systemImage: "doc.on.clipboard")
+                    }
                 } footer: {
-                    Text("支持 sing-box JSON 和 Shadowrocket .conf。导入失败不会覆盖当前可用配置，代理凭据保存于共享 Keychain。")
+                    Text("支持文件或粘贴 sing-box JSON 和 Shadowrocket .conf。导入失败不会覆盖当前可用配置，代理凭据保存于共享 Keychain。")
                 }
 
                 Section("配置") {
@@ -141,6 +148,12 @@ struct ProfileManagementView: View {
         .sheet(isPresented: $showImportPreview, onDismiss: { model.importedDraft = nil }) {
             ImportPreviewView()
         }
+        .sheet(
+            isPresented: $showTextImporter,
+            onDismiss: { showImportPreview = model.importedDraft != nil }
+        ) {
+            TextConfigurationImportView()
+        }
     }
 
     private func profileRow(_ profile: ProxyProfileMetadata) -> some View {
@@ -162,6 +175,35 @@ struct ProfileManagementView: View {
         .swipeActions(edge: .trailing) {
             Button("删除", role: .destructive) { Task { await model.deleteProfile(profile.id) } }
                 .disabled(model.activeProfileID == profile.id)
+        }
+    }
+}
+
+private struct TextConfigurationImportView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $text)
+                .font(.system(.body, design: .monospaced))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(8)
+                .navigationTitle("粘贴配置")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("取消") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("解析") {
+                            model.previewImport(data: Data(text.utf8), sourceName: "粘贴的配置.txt")
+                            if model.importedDraft != nil { dismiss() }
+                        }
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
         }
     }
 }

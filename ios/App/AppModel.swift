@@ -130,11 +130,21 @@ final class AppModel: ObservableObject {
     }
 
     func previewImport(from url: URL) {
+        importedDraft = nil
         let hasAccess = url.startAccessingSecurityScopedResource()
         defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-            importedDraft = try ProxyProfileImporter.importConfiguration(data, sourceName: url.lastPathComponent)
+            previewImport(data: data, sourceName: url.lastPathComponent)
+        } catch {
+            present(error, title: "配置导入失败")
+        }
+    }
+
+    func previewImport(data: Data, sourceName: String) {
+        importedDraft = nil
+        do {
+            importedDraft = try ProxyProfileImporter.importConfiguration(data, sourceName: sourceName)
         } catch {
             present(error, title: "配置导入失败")
         }
