@@ -11,9 +11,9 @@
 ## 首次设置
 
 1. 安装 Shadowrocket。
-2. 在 WLOC 的“Shadowrocket 设置”中分享内置 `wloc.module`，交给 Shadowrocket 导入并启用。
+2. 在 WLOC 的“Shadowrocket 设置”中点“一键安装 WLOC 模块”，在 Shadowrocket 中确认导入并启用；一键链接失败时再使用内置文件分享兜底。
 3. 按 Shadowrocket 与 iOS 的提示安装 MITM CA，并到证书信任设置中开启完全信任。
-4. 回到 WLOC 勾选一次性确认，再点击“检测 WLOC 模块”。只有真实返回 WLOC Settings JSON 才会显示模块可用。
+4. 回到 WLOC 点击“检测并完成设置”。只有真实返回 WLOC Settings JSON，App 才会自动记录模块与证书可用。
 
 ## 定位流程
 

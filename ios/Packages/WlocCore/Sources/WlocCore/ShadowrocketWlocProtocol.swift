@@ -1,5 +1,22 @@
 import Foundation
 
+public enum ShadowrocketActionURL {
+    public static func installModule(_ moduleURL: URL) throws -> URL {
+        guard moduleURL.scheme?.lowercased() == "https", moduleURL.host != nil else {
+            throw WlocCoreError.malformedInput("WLOC 模块下载地址必须是 HTTPS")
+        }
+
+        var components = URLComponents()
+        components.scheme = "shadowrocket"
+        components.host = "install"
+        components.queryItems = [URLQueryItem(name: "module", value: moduleURL.absoluteString)]
+        guard let url = components.url else {
+            throw WlocCoreError.malformedInput("无法生成 Shadowrocket 模块安装链接")
+        }
+        return url
+    }
+}
+
 public enum ShadowrocketWlocRequest: Equatable, Sendable {
     case save(WlocTarget)
     case query

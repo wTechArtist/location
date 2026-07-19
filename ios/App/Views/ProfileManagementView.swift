@@ -26,25 +26,30 @@ struct ProfileManagementView: View {
                 }
 
                 Section {
+                    if model.shadowrocketSetupConfirmed {
+                        Label("设置已完成", systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        Button {
+                            Task { await model.installShadowrocketModule() }
+                        } label: {
+                            Label("1. 一键安装 WLOC 模块", systemImage: "wand.and.stars")
+                        }
+                        Button {
+                            Task { await model.refreshShadowrocketModuleStatus(showErrors: true) }
+                        } label: {
+                            Label("2. 检测并完成设置", systemImage: "checkmark.circle")
+                        }
+                    }
                     if let moduleURL = model.moduleFileURL {
                         ShareLink(item: moduleURL) {
-                            Label("分享 WLOC 模块到 Shadowrocket", systemImage: "square.and.arrow.up")
+                            Label("一键安装失败？手动分享模块", systemImage: "square.and.arrow.up")
                         }
-                    } else {
-                        Label("安装包内缺少 wloc.module", systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
                     }
-                    Toggle(
-                        "模块已启用，MITM 证书已完全信任",
-                        isOn: Binding(
-                            get: { model.shadowrocketSetupConfirmed },
-                            set: { model.setShadowrocketSetupConfirmed($0) }
-                        )
-                    )
                 } header: {
                     Text("首次设置")
                 } footer: {
-                    Text("第一次需要在 Shadowrocket 中启用模块，并按系统要求安装、完全信任 Shadowrocket 的 MITM 证书。App 无法绕过或读取证书信任开关；勾选后仍会用真实模块响应核验。")
+                    Text("先点第 1 步并在 Shadowrocket 中确认安装/启用。按其提示安装 HTTPS 解密证书，并在 iOS“设置 > 通用 > 关于本机 > 证书信任设置”中完全信任；返回后点第 2 步。只有真实取得模块响应才会显示完成，不再使用手动确认开关。")
                 }
 
                 Section {

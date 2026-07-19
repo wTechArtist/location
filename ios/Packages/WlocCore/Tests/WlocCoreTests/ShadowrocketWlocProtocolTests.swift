@@ -4,6 +4,27 @@ import Testing
 
 @Suite("Shadowrocket WLOC Settings protocol")
 struct ShadowrocketWlocProtocolTests {
+    @Test("module install URL keeps the immutable HTTPS source")
+    func moduleInstallURL() throws {
+        let source = try #require(URL(string: "https://raw.githubusercontent.com/example/repo/012345/module.module"))
+        let url = try ShadowrocketActionURL.installModule(source)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+
+        #expect(components.scheme == "shadowrocket")
+        #expect(components.host == "install")
+        #expect(components.queryItems?.count == 1)
+        #expect(components.queryItems?.first?.name == "module")
+        #expect(components.queryItems?.first?.value == source.absoluteString)
+    }
+
+    @Test("module install URL rejects non-HTTPS sources")
+    func moduleInstallURLRejectsHTTP() throws {
+        let source = try #require(URL(string: "http://example.com/wloc.module"))
+        #expect(throws: WlocCoreError.self) {
+            try ShadowrocketActionURL.installModule(source)
+        }
+    }
+
     @Test("save URL preserves signed and zero coordinates")
     func saveURL() throws {
         let coordinate = try WlocCoordinate(latitude: 0, longitude: -73.985_428)

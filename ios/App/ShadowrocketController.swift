@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import WlocCore
 
 @MainActor
 struct ShadowrocketController {
@@ -26,13 +27,21 @@ struct ShadowrocketController {
     }
 
     func send(_ command: Command) async throws {
+        try await open(command.url, label: command.label)
+    }
+
+    func installModule(from moduleURL: URL) async throws {
+        try await open(ShadowrocketActionURL.installModule(moduleURL), label: "安装 WLOC 模块")
+    }
+
+    private func open(_ url: URL, label: String) async throws {
         guard isInstalled else { throw ShadowrocketControllerError.notInstalled }
         let accepted = await withCheckedContinuation { continuation in
-            UIApplication.shared.open(command.url, options: [:]) { success in
+            UIApplication.shared.open(url, options: [:]) { success in
                 continuation.resume(returning: success)
             }
         }
-        guard accepted else { throw ShadowrocketControllerError.commandRejected(command.label) }
+        guard accepted else { throw ShadowrocketControllerError.commandRejected(label) }
     }
 }
 

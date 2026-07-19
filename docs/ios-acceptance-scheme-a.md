@@ -13,7 +13,7 @@
 
 - [ ] 从 WLOC 分享并在 Shadowrocket 中导入、启用内置 `wloc.module`。
 - [ ] 按 Shadowrocket/iOS 提示安装 MITM CA，并在系统设置中开启完全信任。
-- [ ] WLOC 的一次性确认不能单独算成功；“检测 WLOC 模块”必须真实取得 `/wloc-settings/query` JSON。
+- [ ] “设置完成”的界面状态不能单独算成功；检测必须真实取得 `/wloc-settings/query` JSON。
 - [ ] 拒绝导入或未信任证书时，WLOC 明确显示未就绪，不得误报成功。
 
 ## 地图与配置导入

@@ -53,6 +53,9 @@ final class AppModel: ObservableObject {
     private let store = WlocSharedStore()
     private let bridge = ShadowrocketWlocBridge()
     private let shadowrocket = ShadowrocketController()
+    private let pinnedModuleDownloadURL = URL(
+        string: "https://raw.githubusercontent.com/wTechArtist/location/c7fea827fea1558c9b77a6583b9b1b7a9dab07ec/ios/App/Resources/wloc.module"
+    )!
     private var pendingTarget: WlocTarget?
     private var previousTarget: WlocTarget = .passthrough
     private var started = false
@@ -122,11 +125,6 @@ final class AppModel: ObservableObject {
         shadowrocketInstalled = shadowrocket.isInstalled
     }
 
-    func setShadowrocketSetupConfirmed(_ confirmed: Bool) {
-        store.setShadowrocketSetupConfirmed(confirmed)
-        shadowrocketSetupConfirmed = confirmed
-    }
-
     func refreshShadowrocketModuleStatus(showErrors: Bool = false) async {
         refreshShadowrocketAvailability()
         guard shadowrocketInstalled else {
@@ -138,10 +136,33 @@ final class AppModel: ObservableObject {
             let target = try await bridge.currentTarget()
             remoteTarget = target
             moduleStatus = target.mode == .override ? "模块可用 · 已保存坐标" : "模块可用 · 真实定位透传"
+            store.setShadowrocketSetupConfirmed(true)
+            shadowrocketSetupConfirmed = true
+            if showErrors {
+                presentMessage(title: "设置完成", message: "WLOC 已真实取得模块响应，模块与 MITM 证书均可用。")
+            }
         } catch {
             remoteTarget = nil
             moduleStatus = "模块不可用"
-            if showErrors { present(error, title: "模块检测失败") }
+            store.setShadowrocketSetupConfirmed(false)
+            shadowrocketSetupConfirmed = false
+            if showErrors {
+                presentMessage(
+                    title: "还差一步",
+                    message: "没有取得 WLOC 模块响应。请确认 Shadowrocket 已安装并启用模块，同时已安装并完全信任 HTTPS 解密证书，然后重试。\n\n详细原因：\(error.localizedDescription)"
+                )
+            }
+        }
+    }
+
+    func installShadowrocketModule() async {
+        refreshShadowrocketAvailability()
+        do {
+            try await shadowrocket.installModule(from: pinnedModuleDownloadURL)
+            shadowrocketLastCommand = "已打开 WLOC 模块安装"
+            moduleStatus = "等待在 Shadowrocket 中确认安装"
+        } catch {
+            present(error, title: "无法打开模块安装")
         }
     }
 
@@ -289,7 +310,7 @@ final class AppModel: ObservableObject {
         refreshShadowrocketAvailability()
         guard shadowrocketInstalled else { throw ShadowrocketControllerError.notInstalled }
         guard shadowrocketSetupConfirmed else {
-            throw WlocCoreError.malformedInput("请先在“Shadowrocket 设置”中导入并启用 WLOC 模块、完全信任其 MITM 证书，然后勾选一次性确认。")
+            throw WlocCoreError.malformedInput("请打开右上角“Shadowrocket 设置”，先点“一键安装 WLOC 模块”，完成后点“检测并完成设置”。")
         }
 
         workflow = .preparing
