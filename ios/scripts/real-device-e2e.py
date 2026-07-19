@@ -887,6 +887,58 @@ async def map_features(
     return evidence
 
 
+async def config_picker_cancel(
+    client: WdaServiceClient,
+    session_id: str,
+    output_dir: Path,
+) -> list[dict]:
+    evidence: list[dict] = []
+    await dismiss_finished_workflow(client, session_id)
+    trace("opening the Shadowrocket configuration file picker")
+    await tap_first(client, session_id, [("accessibility id", "wloc.settings")])
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.settings.screen")])
+    had_pending_share = await element_exists(
+        client,
+        session_id,
+        [("accessibility id", "交给 Shadowrocket 打开")],
+    )
+    await tap_first(client, session_id, [("accessibility id", "选择配置文件")])
+    await wait_for_first(
+        client,
+        session_id,
+        [
+            ("accessibility id", "取消"),
+            ("accessibility id", "Cancel"),
+            ("xpath", '//XCUIElementTypeButton[@name="取消" or @name="Cancel"]'),
+        ],
+        timeout=20,
+    )
+    evidence.append(await capture(client, session_id, output_dir, "config-file-picker-open"))
+    await tap_first(
+        client,
+        session_id,
+        [
+            ("accessibility id", "取消"),
+            ("accessibility id", "Cancel"),
+            ("xpath", '//XCUIElementTypeButton[@name="取消" or @name="Cancel"]'),
+        ],
+    )
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.settings.screen")])
+    has_pending_share = await element_exists(
+        client,
+        session_id,
+        [("accessibility id", "交给 Shadowrocket 打开")],
+    )
+    if has_pending_share != had_pending_share:
+        raise RuntimeError("Cancelling the file picker unexpectedly changed pending import state")
+    if await element_exists(client, session_id, [("accessibility id", "无法读取文件")]):
+        raise RuntimeError("Cancelling the file picker incorrectly produced a read failure")
+    evidence.append(await capture(client, session_id, output_dir, "config-file-picker-cancelled"))
+    await tap_first(client, session_id, [("accessibility id", "关闭")])
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.map")])
+    return evidence
+
+
 async def run_probe(args: argparse.Namespace) -> dict:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -929,6 +981,8 @@ async def run_probe(args: argparse.Namespace) -> dict:
                 )
             elif args.scenario == "map-features":
                 evidence = await map_features(client, session_id, output_dir)
+            elif args.scenario == "config-picker-cancel":
+                evidence = await config_picker_cancel(client, session_id, output_dir)
             elif args.scenario == "settings-probe":
                 evidence = await probe_location_settings(client, session_id, output_dir)
             else:
@@ -965,6 +1019,7 @@ def parse_args() -> argparse.Namespace:
             "full-location-roundtrip",
             "restore-only",
             "map-features",
+            "config-picker-cancel",
             "settings-probe",
         ),
         default="probe",
