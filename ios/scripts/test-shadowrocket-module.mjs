@@ -20,7 +20,8 @@ const declaredHashes = Object.fromEntries(
     .map((match) => [match[1], match[2]]),
 );
 for (const [name, source] of [["wloc.js", wlocSource], ["wloc-settings.js", settingsSource]]) {
-  const actualHash = createHash("sha256").update(source).digest("hex");
+  const repositoryBytes = source.replace(/\r\n/g, "\n");
+  const actualHash = createHash("sha256").update(repositoryBytes).digest("hex");
   assert.equal(declaredHashes[name], actualHash, `${name} does not match the module integrity metadata`);
 }
 
