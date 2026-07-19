@@ -8,6 +8,7 @@ struct ShadowrocketController {
         case open
         case connect
         case disconnect
+        case toggle
 
         var url: URL {
             URL(string: "shadowrocket://\(rawValue)")!
@@ -18,6 +19,7 @@ struct ShadowrocketController {
             case .open: "打开 Shadowrocket"
             case .connect: "连接"
             case .disconnect: "断开"
+            case .toggle: "切换连接状态"
             }
         }
     }

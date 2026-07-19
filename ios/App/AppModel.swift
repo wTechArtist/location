@@ -350,7 +350,10 @@ final class AppModel: ObservableObject {
         do {
             try saveLocationCycleCheckpoint(stage: .waitingForLocationOn)
             workflow = .waitingForLocationOn
-            try await sendShadowrocket(.connect)
+            // Shadowrocket 2.2.72 accepts `connect` but only foregrounds the app.
+            // At this point the workflow has already issued a disconnect, so its `toggle`
+            // URL has deterministic reconnect semantics on the supported real-device flow.
+            try await sendShadowrocket(.toggle)
         } catch {
             workflow = .failed("未能向 Shadowrocket 发出连接指令：\(error.localizedDescription)。目标状态已写入，但不会报告切换完成。")
         }
