@@ -65,6 +65,13 @@
 
 ## 完成证据
 
+### 自动化构建验证（不代替真机验收）
+
+- 2026-07-19，commit `bcd2815` 的 [GitHub Actions run 29671680735](https://github.com/wTechArtist/location/actions/runs/29671680735) 完成且结论为 `success`。
+- 远程 Intel Mac（macOS 15.7.7、Xcode 16.4）完成 pinned Libbox 构建；Swift Package 测试为 12 个 XCTest + 4 个 Swift Testing，均通过。
+- 同一台 Mac 的 `generic/platform=iOS` arm64 无签名构建显示 `BUILD SUCCEEDED`；iPhone 16 Pro 模拟器集成测试为 14 个 XCTest + 4 个 Swift Testing，均通过并显示 `TEST SUCCEEDED`。
+- 自动签名探测明确失败于 Personal Team 不支持 Network Extensions。当前没有签名归档、IPA、TestFlight 或真实 iPhone 运行证据，因此本清单仍为 0/33，不得据此勾选任何真机条目。
+
 完成通知必须附带：
 
 1. 单元测试、集成测试和 Xcode Archive 结果。
