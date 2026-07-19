@@ -1,5 +1,5 @@
 .build/
-DerivedData/
+DerivedData*/
 Wloc.xcodeproj/
 Vendor/Libbox.xcframework/
 *.xcarchive
