@@ -19,7 +19,7 @@ done
 DEVELOPMENT_TEAM=${WLOC_DEVELOPMENT_TEAM:-}
 BASE_BUNDLE_IDENTIFIER=${WLOC_BASE_BUNDLE_IDENTIFIER:-}
 APP_GROUP_IDENTIFIER=${WLOC_APP_GROUP_IDENTIFIER:-}
-EXPORT_METHOD=${WLOC_EXPORT_METHOD:-development}
+EXPORT_METHOD=${WLOC_EXPORT_METHOD:-debugging}
 
 if ! printf '%s' "$DEVELOPMENT_TEAM" | grep -Eq '^[A-Za-z0-9]{10}$'; then
   echo "error: 请通过 WLOC_DEVELOPMENT_TEAM 提供 10 位 Apple Developer Team ID。" >&2
@@ -34,12 +34,24 @@ if ! printf '%s' "$APP_GROUP_IDENTIFIER" | grep -Eq '^group\.[A-Za-z0-9][A-Za-z0
   exit 1
 fi
 case "$EXPORT_METHOD" in
-  development|ad-hoc) ;;
+  development)
+    EXPORT_METHOD=debugging
+    ;;
+  ad-hoc)
+    EXPORT_METHOD=release-testing
+    ;;
+  debugging|release-testing) ;;
   *)
-    echo "error: WLOC_EXPORT_METHOD 仅支持 development 或 ad-hoc。" >&2
+    echo "error: WLOC_EXPORT_METHOD 仅支持 debugging 或 release-testing（也兼容 development/ad-hoc 旧名）。" >&2
     exit 1
     ;;
 esac
+
+XCODEBUILD_HELP=$(xcodebuild -help 2>&1)
+if ! printf '%s\n' "$XCODEBUILD_HELP" | grep -F "$EXPORT_METHOD" >/dev/null 2>&1; then
+  echo "error: 当前 Xcode 不支持导出方式 $EXPORT_METHOD，请运行 xcodebuild -help 核对 ExportOptions.plist method。" >&2
+  exit 1
+fi
 
 if [ ! -d "$IOS_DIR/Vendor/Libbox.xcframework" ]; then
   "$SCRIPT_DIR/bootstrap-macos.sh"

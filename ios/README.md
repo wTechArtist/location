@@ -30,12 +30,13 @@ open Wloc.xcodeproj
 export WLOC_DEVELOPMENT_TEAM="你的10位TeamID"
 export WLOC_BASE_BUNDLE_IDENTIFIER="你的唯一BundleID"
 export WLOC_APP_GROUP_IDENTIFIER="group.你的唯一BundleID"
-# 可选：development（默认）或 ad-hoc
-export WLOC_EXPORT_METHOD="development"
+# 可选：debugging（默认）或 release-testing
+# 也兼容 Xcode 旧名 development / ad-hoc
+export WLOC_EXPORT_METHOD="debugging"
 ./scripts/archive-macos.sh
 ```
 
-脚本会生成带主 App 与 Packet Tunnel 的签名 `.xcarchive` 和 `.ipa`，并解包复核两者代码签名；可通过 `WLOC_ARCHIVE_PATH` 与 `WLOC_EXPORT_PATH` 指定输出位置。development 导出需要目标 iPhone 已注册到开发者团队。请从 Xcode 的 Devices and Simulators 或 Apple Configurator 安装 IPA，并严格按 `docs/ios-acceptance.md` 完成真机验收；生成 IPA 仍不能替代真机结果。
+脚本会生成带主 App 与 Packet Tunnel 的签名 `.xcarchive` 和 `.ipa`，并解包复核两者代码签名；可通过 `WLOC_ARCHIVE_PATH` 与 `WLOC_EXPORT_PATH` 指定输出位置。debugging 导出需要目标 iPhone 已注册到开发者团队。请从 Xcode 的 Devices and Simulators 或 Apple Configurator 安装 IPA，并严格按 `docs/ios-acceptance.md` 完成真机验收；生成 IPA 仍不能替代真机结果。
 
 ## 重要状态
 
