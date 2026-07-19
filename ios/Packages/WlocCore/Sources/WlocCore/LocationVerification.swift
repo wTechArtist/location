@@ -13,7 +13,11 @@ public enum LocationVerifier {
 
         if target.mode == .override, let expected = target.coordinate {
             let distance = distanceMeters(from: actualCoordinate, to: expected)
-            let threshold = max(150, Double(target.accuracy) * 5, accuracyAllowance)
+            // A successful override must land inside the accuracy radius that the
+            // module claims. A broad fixed floor previously allowed a visibly wrong
+            // mainland map coordinate (for example, a GCJ-02/WGS-84 mismatch) to be
+            // reported as successful.
+            let threshold = Double(target.accuracy)
             let succeeded = distance <= threshold
             return LocationVerificationEvidence(
                 verifiedAt: verifiedAt,

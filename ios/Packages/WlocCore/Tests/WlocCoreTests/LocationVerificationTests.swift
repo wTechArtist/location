@@ -29,7 +29,7 @@ struct LocationVerificationTests {
         #expect(failure.distanceMeters! > failure.thresholdMeters!)
     }
 
-    @Test("reported accuracy expands but never removes the evidence threshold")
+    @Test("imprecise system evidence cannot expand the target threshold")
     func accuracyThreshold() throws {
         let target = try override(latitude: 51.5, longitude: -0.12, accuracy: 25)
         let actual = try coordinate(latitude: 51.503, longitude: -0.12)
@@ -40,8 +40,24 @@ struct LocationVerificationTests {
             previousTarget: .passthrough
         )
 
-        #expect(result.thresholdMeters == 400)
-        #expect(result.succeeded)
+        #expect(result.thresholdMeters == 25)
+        #expect(!result.succeeded)
+    }
+
+    @Test("override rejects a coordinate outside its declared 25 metre radius")
+    func strictOverrideRadius() throws {
+        let target = try override(latitude: 23.132739, longitude: 113.259172)
+        let actual = try coordinate(latitude: 23.133189, longitude: 113.259172)
+        let result = LocationVerifier.evaluate(
+            actualCoordinate: actual,
+            horizontalAccuracy: 10,
+            target: target,
+            previousTarget: .passthrough
+        )
+
+        #expect(result.thresholdMeters == 25)
+        #expect(result.distanceMeters! > 45)
+        #expect(!result.succeeded)
     }
 
     @Test("restore succeeds when the fresh location differs from the old fake")
@@ -106,8 +122,8 @@ struct LocationVerificationTests {
 
     @Test("distance calculation handles the international date line")
     func dateLine() throws {
-        let target = try override(latitude: 0, longitude: 179.9995)
-        let actual = try coordinate(latitude: 0, longitude: -179.9995)
+        let target = try override(latitude: 0, longitude: 179.99995)
+        let actual = try coordinate(latitude: 0, longitude: -179.99995)
         let result = LocationVerifier.evaluate(
             actualCoordinate: actual,
             horizontalAccuracy: 5,
@@ -116,7 +132,7 @@ struct LocationVerificationTests {
         )
 
         #expect(result.succeeded)
-        #expect(result.distanceMeters! < 150)
+        #expect(result.distanceMeters! < 25)
     }
 
     private func coordinate(latitude: Double, longitude: Double) throws -> WlocCoordinate {
