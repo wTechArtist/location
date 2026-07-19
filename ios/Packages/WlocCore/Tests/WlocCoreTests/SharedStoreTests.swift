@@ -54,4 +54,36 @@ struct SharedStoreTests {
         try store.saveTunnelDiagnostics(nil)
         #expect(try store.loadTunnelDiagnostics() == nil)
     }
+
+    @Test("concurrent tunnel reads and writes remain decodable")
+    func concurrentReadWrite() async throws {
+        let suiteName = "app.wloc.tests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let coordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0 ..< 100 {
+                group.addTask {
+                    let target = try WlocTarget(mode: .override, coordinate: coordinate, accuracy: 25 + index)
+                    try store.saveTarget(target)
+                    _ = try store.loadTarget()
+
+                    let diagnostics = WlocTunnelDiagnostics(
+                        responseCount: index,
+                        locations: index,
+                        wifiMessages: index / 2,
+                        cellMessages: index / 3
+                    )
+                    try store.saveTunnelDiagnostics(diagnostics)
+                    _ = try store.loadTunnelDiagnostics()
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        #expect(try store.loadTarget().mode == .override)
+        #expect(try store.loadTunnelDiagnostics() != nil)
+    }
 }

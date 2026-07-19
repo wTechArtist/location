@@ -12,6 +12,7 @@ public final class WlocSharedStore: @unchecked Sendable {
     private let defaults: UserDefaults
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let lock = NSLock()
 
     public init(appGroupIdentifier: String) throws {
         guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
@@ -25,79 +26,113 @@ public final class WlocSharedStore: @unchecked Sendable {
     }
 
     public func loadTarget() throws -> WlocTarget {
-        guard let data = defaults.data(forKey: Self.targetKey) else {
-            return .passthrough
+        try withLock {
+            guard let data = defaults.data(forKey: Self.targetKey) else {
+                return .passthrough
+            }
+            return try decoder.decode(WlocTarget.self, from: data)
         }
-        return try decoder.decode(WlocTarget.self, from: data)
     }
 
     public func saveTarget(_ target: WlocTarget) throws {
-        defaults.set(try encoder.encode(target), forKey: Self.targetKey)
+        try withLock {
+            defaults.set(try encoder.encode(target), forKey: Self.targetKey)
+        }
     }
 
     public func loadPlaces() throws -> [SavedPlace] {
-        guard let data = defaults.data(forKey: Self.placesKey) else {
-            return []
+        try withLock {
+            guard let data = defaults.data(forKey: Self.placesKey) else {
+                return []
+            }
+            return try decoder.decode([SavedPlace].self, from: data)
         }
-        return try decoder.decode([SavedPlace].self, from: data)
     }
 
     public func savePlaces(_ places: [SavedPlace]) throws {
-        defaults.set(try encoder.encode(places), forKey: Self.placesKey)
+        try withLock {
+            defaults.set(try encoder.encode(places), forKey: Self.placesKey)
+        }
     }
 
     public func loadActiveProfileID() -> UUID? {
-        defaults.string(forKey: Self.activeProfileKey).flatMap(UUID.init(uuidString:))
+        withLock {
+            defaults.string(forKey: Self.activeProfileKey).flatMap(UUID.init(uuidString:))
+        }
     }
 
     public func saveActiveProfileID(_ id: UUID?) {
-        defaults.set(id?.uuidString, forKey: Self.activeProfileKey)
+        withLock {
+            defaults.set(id?.uuidString, forKey: Self.activeProfileKey)
+        }
     }
 
     public func loadRealLocationBaseline() throws -> RealLocationBaseline? {
-        guard let data = defaults.data(forKey: Self.realLocationBaselineKey) else { return nil }
-        return try decoder.decode(RealLocationBaseline.self, from: data)
+        try withLock {
+            guard let data = defaults.data(forKey: Self.realLocationBaselineKey) else { return nil }
+            return try decoder.decode(RealLocationBaseline.self, from: data)
+        }
     }
 
     public func saveRealLocationBaseline(_ baseline: RealLocationBaseline?) throws {
-        if let baseline {
-            defaults.set(try encoder.encode(baseline), forKey: Self.realLocationBaselineKey)
-        } else {
-            defaults.removeObject(forKey: Self.realLocationBaselineKey)
+        try withLock {
+            if let baseline {
+                defaults.set(try encoder.encode(baseline), forKey: Self.realLocationBaselineKey)
+            } else {
+                defaults.removeObject(forKey: Self.realLocationBaselineKey)
+            }
         }
     }
 
     public func isCATrustConfirmed() -> Bool {
-        defaults.bool(forKey: Self.caTrustConfirmedKey)
+        withLock {
+            defaults.bool(forKey: Self.caTrustConfirmedKey)
+        }
     }
 
     public func setCATrustConfirmed(_ confirmed: Bool) {
-        defaults.set(confirmed, forKey: Self.caTrustConfirmedKey)
+        withLock {
+            defaults.set(confirmed, forKey: Self.caTrustConfirmedKey)
+        }
     }
 
     public func loadLocationCycleCheckpoint() throws -> LocationCycleCheckpoint? {
-        guard let data = defaults.data(forKey: Self.locationCycleCheckpointKey) else { return nil }
-        return try decoder.decode(LocationCycleCheckpoint.self, from: data)
+        try withLock {
+            guard let data = defaults.data(forKey: Self.locationCycleCheckpointKey) else { return nil }
+            return try decoder.decode(LocationCycleCheckpoint.self, from: data)
+        }
     }
 
     public func saveLocationCycleCheckpoint(_ checkpoint: LocationCycleCheckpoint?) throws {
-        if let checkpoint {
-            defaults.set(try encoder.encode(checkpoint), forKey: Self.locationCycleCheckpointKey)
-        } else {
-            defaults.removeObject(forKey: Self.locationCycleCheckpointKey)
+        try withLock {
+            if let checkpoint {
+                defaults.set(try encoder.encode(checkpoint), forKey: Self.locationCycleCheckpointKey)
+            } else {
+                defaults.removeObject(forKey: Self.locationCycleCheckpointKey)
+            }
         }
     }
 
     public func loadTunnelDiagnostics() throws -> WlocTunnelDiagnostics? {
-        guard let data = defaults.data(forKey: Self.tunnelDiagnosticsKey) else { return nil }
-        return try decoder.decode(WlocTunnelDiagnostics.self, from: data)
+        try withLock {
+            guard let data = defaults.data(forKey: Self.tunnelDiagnosticsKey) else { return nil }
+            return try decoder.decode(WlocTunnelDiagnostics.self, from: data)
+        }
     }
 
     public func saveTunnelDiagnostics(_ diagnostics: WlocTunnelDiagnostics?) throws {
-        if let diagnostics {
-            defaults.set(try encoder.encode(diagnostics), forKey: Self.tunnelDiagnosticsKey)
-        } else {
-            defaults.removeObject(forKey: Self.tunnelDiagnosticsKey)
+        try withLock {
+            if let diagnostics {
+                defaults.set(try encoder.encode(diagnostics), forKey: Self.tunnelDiagnosticsKey)
+            } else {
+                defaults.removeObject(forKey: Self.tunnelDiagnosticsKey)
+            }
         }
+    }
+
+    private func withLock<T>(_ operation: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return try operation()
     }
 }
