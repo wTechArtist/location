@@ -9,29 +9,14 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 1
 fi
 
-for script in bootstrap-macos.sh archive-macos.sh test-macos.sh; do
+for script in archive-macos.sh test-macos.sh; do
   sh -n "$SCRIPT_DIR/$script"
 done
 echo "Verified: iOS shell scripts pass syntax checks."
 
-XCODEBUILD_HELP=$(xcodebuild -help 2>&1)
-for export_method in debugging release-testing app-store-connect; do
-  if ! printf '%s\n' "$XCODEBUILD_HELP" | grep -F "$export_method" >/dev/null 2>&1; then
-    echo "error: 当前 Xcode 未声明支持 $export_method 导出方式。" >&2
-    exit 1
-  fi
-done
-echo "Verified: Xcode supports debugging and release-testing IPA export methods."
-
-if [ ! -d "$IOS_DIR/Vendor/Libbox.xcframework" ]; then
-  "$SCRIPT_DIR/bootstrap-macos.sh"
-fi
-
 (cd "$IOS_DIR/Packages/WlocCore" && swift test)
 (cd "$IOS_DIR" && xcodegen generate)
 
-# Compile the arm64/device paths used by an archive before running simulator
-# tests. Signing stays disabled because this check needs no developer account.
 xcodebuild \
   -project "$IOS_DIR/Wloc.xcodeproj" \
   -scheme Wloc \

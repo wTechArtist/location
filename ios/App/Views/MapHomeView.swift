@@ -89,9 +89,9 @@ struct MapHomeView: View {
                     }
                 }
                 Spacer()
-                Label(model.tunnel.state.label, systemImage: model.tunnel.state == .connected ? "lock.shield.fill" : "lock.slash")
+                Label(model.moduleStatus, systemImage: model.shadowrocketInstalled ? "paperplane.circle.fill" : "paperplane.circle")
                     .font(.caption)
-                    .foregroundStyle(model.tunnel.state == .connected ? .green : .secondary)
+                    .foregroundStyle(model.moduleStatus.hasPrefix("模块可用") ? .green : .secondary)
             }
 
             HStack {
@@ -124,11 +124,13 @@ struct MapHomeView: View {
         case .idle:
             EmptyView()
         case .preparing:
-            WorkflowPanel(title: "正在准备", message: "正在安全断开 WLOC VPN 并保存目标状态。", showsProgress: true)
+            WorkflowPanel(title: "正在准备", message: "正在通过 Shadowrocket 模块写入并回查目标坐标。", showsProgress: true)
         case .startingVPN:
-            WorkflowPanel(title: "正在启动 VPN", message: "首次使用时 iOS 会要求手动允许添加 VPN 配置。", showsProgress: true)
+            WorkflowPanel(title: "正在连接 Shadowrocket", message: "WLOC 正在向 Shadowrocket 发出连接指令。iOS 可能会暂时切换到 Shadowrocket。", showsProgress: true)
         case .verifying:
-            WorkflowPanel(title: "正在核验定位", message: "正在请求一条新的系统定位，并与目标坐标或真实位置基线做距离比对。", showsProgress: true)
+            WorkflowPanel(title: "正在核验定位", message: "正在回查 Shadowrocket 模块，并把新的系统定位与目标坐标或真实位置基线做距离比对。", showsProgress: true)
+        case .rollingBack:
+            WorkflowPanel(title: "正在回滚", message: "正在重新连接 Shadowrocket 并恢复操作前的模块坐标状态。", showsProgress: true)
         case .waitingForLocationOff:
             WorkflowPanel(
                 title: "请关闭系统定位服务",
@@ -140,7 +142,7 @@ struct MapHomeView: View {
         case .waitingForLocationOn:
             WorkflowPanel(
                 title: "请重新开启定位服务",
-                message: "WLOC VPN 已自动启动。现在开启系统定位服务并返回，App 会确认定位和 VPN 最终都处于开启状态。",
+                message: "已向 Shadowrocket 发出连接指令。现在开启系统定位服务并返回，App 会核验模块响应和系统定位；实际 VPN 开关请以 Shadowrocket/iOS 状态为准。",
                 primaryTitle: "我已开启，完成",
                 primaryAction: { Task { await model.continueLocationCycle() } },
                 cancelAction: { Task { await model.cancelLocationCycle() } }

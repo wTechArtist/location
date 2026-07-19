@@ -3,22 +3,17 @@ import Foundation
 public final class WlocSharedStore: @unchecked Sendable {
     public static let targetKey = "wloc.target.v1"
     public static let placesKey = "wloc.places.v1"
-    public static let activeProfileKey = "wloc.active-profile.v1"
     public static let realLocationBaselineKey = "wloc.real-location-baseline.v1"
-    public static let caTrustConfirmedKey = "wloc.ca-trust-confirmed.v1"
     public static let locationCycleCheckpointKey = "wloc.location-cycle-checkpoint.v1"
     public static let locationVerificationKey = "wloc.location-verification.v1"
-    public static let tunnelDiagnosticsKey = "wloc.tunnel-diagnostics.v1"
+    public static let shadowrocketSetupConfirmedKey = "wloc.shadowrocket-setup-confirmed.v1"
 
     private let defaults: UserDefaults
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let lock = NSLock()
 
-    public init(appGroupIdentifier: String) throws {
-        guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            throw WlocCoreError.malformedInput("无法打开 App Group：\(appGroupIdentifier)")
-        }
+    public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -56,18 +51,6 @@ public final class WlocSharedStore: @unchecked Sendable {
         }
     }
 
-    public func loadActiveProfileID() -> UUID? {
-        withLock {
-            defaults.string(forKey: Self.activeProfileKey).flatMap(UUID.init(uuidString:))
-        }
-    }
-
-    public func saveActiveProfileID(_ id: UUID?) {
-        withLock {
-            defaults.set(id?.uuidString, forKey: Self.activeProfileKey)
-        }
-    }
-
     public func loadRealLocationBaseline() throws -> RealLocationBaseline? {
         try withLock {
             guard let data = defaults.data(forKey: Self.realLocationBaselineKey) else { return nil }
@@ -85,15 +68,15 @@ public final class WlocSharedStore: @unchecked Sendable {
         }
     }
 
-    public func isCATrustConfirmed() -> Bool {
+    public func isShadowrocketSetupConfirmed() -> Bool {
         withLock {
-            defaults.bool(forKey: Self.caTrustConfirmedKey)
+            defaults.bool(forKey: Self.shadowrocketSetupConfirmedKey)
         }
     }
 
-    public func setCATrustConfirmed(_ confirmed: Bool) {
+    public func setShadowrocketSetupConfirmed(_ confirmed: Bool) {
         withLock {
-            defaults.set(confirmed, forKey: Self.caTrustConfirmedKey)
+            defaults.set(confirmed, forKey: Self.shadowrocketSetupConfirmedKey)
         }
     }
 
@@ -127,23 +110,6 @@ public final class WlocSharedStore: @unchecked Sendable {
                 defaults.set(try encoder.encode(verification), forKey: Self.locationVerificationKey)
             } else {
                 defaults.removeObject(forKey: Self.locationVerificationKey)
-            }
-        }
-    }
-
-    public func loadTunnelDiagnostics() throws -> WlocTunnelDiagnostics? {
-        try withLock {
-            guard let data = defaults.data(forKey: Self.tunnelDiagnosticsKey) else { return nil }
-            return try decoder.decode(WlocTunnelDiagnostics.self, from: data)
-        }
-    }
-
-    public func saveTunnelDiagnostics(_ diagnostics: WlocTunnelDiagnostics?) throws {
-        try withLock {
-            if let diagnostics {
-                defaults.set(try encoder.encode(diagnostics), forKey: Self.tunnelDiagnosticsKey)
-            } else {
-                defaults.removeObject(forKey: Self.tunnelDiagnosticsKey)
             }
         }
     }

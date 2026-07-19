@@ -15,9 +15,7 @@ settings:
     MARKETING_VERSION: 0.1.0
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
-    APP_GROUP_IDENTIFIER: group.com.example.wloc
     BASE_BUNDLE_IDENTIFIER: com.example.wloc
-    KEYCHAIN_ACCESS_GROUP: $(AppIdentifierPrefix)$(BASE_BUNDLE_IDENTIFIER).shared
   configs:
     Debug:
       ONLY_ACTIVE_ARCH: true
@@ -33,12 +31,9 @@ targets:
       - path: App
     resources:
       - path: ../wloc.jpg
+      - path: ../modules/wloc.module
     dependencies:
       - package: WlocCore
-      - framework: Vendor/Libbox.xcframework
-        embed: false
-      - target: WlocPacketTunnel
-        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_IDENTIFIER)
@@ -46,7 +41,6 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: WLOC
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: 用于显示当前位置并验证所选定位是否生效。
-        INFOPLIST_KEY_NSCameraUsageDescription: 用于扫描代理配置二维码。
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: 1
@@ -57,58 +51,14 @@ targets:
           - CFBundleURLName: com.example.wloc
             CFBundleURLSchemes:
               - wloc
+        LSApplicationQueriesSchemes:
+          - shadowrocket
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        BGTaskSchedulerPermittedIdentifiers:
-          - $(BASE_BUNDLE_IDENTIFIER).profile-refresh
         UILaunchScreen: {}
-        WlocAppGroupIdentifier: $(APP_GROUP_IDENTIFIER)
-        WlocKeychainAccessGroup: $(KEYCHAIN_ACCESS_GROUP)
-    entitlements:
-      path: App/Wloc.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - $(APP_GROUP_IDENTIFIER)
-        com.apple.developer.networking.networkextension:
-          - packet-tunnel-provider
-        keychain-access-groups:
-          - $(KEYCHAIN_ACCESS_GROUP)
-  WlocPacketTunnel:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: PacketTunnel
-    dependencies:
-      - package: WlocCore
-      - framework: Vendor/Libbox.xcframework
-        embed: false
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_IDENTIFIER).PacketTunnel
-        PRODUCT_NAME: WlocPacketTunnel
-        SKIP_INSTALL: true
-        APPLICATION_EXTENSION_API_ONLY: true
-        TARGETED_DEVICE_FAMILY: 1
-    info:
-      path: PacketTunnel/Info.plist
-      properties:
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
-        WlocAppGroupIdentifier: $(APP_GROUP_IDENTIFIER)
-        WlocKeychainAccessGroup: $(KEYCHAIN_ACCESS_GROUP)
-    entitlements:
-      path: PacketTunnel/PacketTunnel.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - $(APP_GROUP_IDENTIFIER)
-        com.apple.developer.networking.networkextension:
-          - packet-tunnel-provider
-        keychain-access-groups:
-          - $(KEYCHAIN_ACCESS_GROUP)
   WlocCoreTests:
     type: bundle.unit-test
     platform: iOS
@@ -116,8 +66,6 @@ targets:
       - path: Packages/WlocCore/Tests/WlocCoreTests
     dependencies:
       - package: WlocCore
-      - framework: Vendor/Libbox.xcframework
-        embed: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: true
@@ -127,7 +75,6 @@ schemes:
     build:
       targets:
         Wloc: all
-        WlocPacketTunnel: all
         WlocCoreTests: [test]
     test:
       targets:

@@ -9,7 +9,7 @@ struct SharedStoreTests {
         let suiteName = "app.wloc.tests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
 
-        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let store = WlocSharedStore(defaults: try #require(UserDefaults(suiteName: suiteName)))
         let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
         let coordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
         let pending = try WlocTarget(mode: .override, coordinate: coordinate, updatedAt: fixedDate)
@@ -28,39 +28,12 @@ struct SharedStoreTests {
         #expect(try store.loadLocationCycleCheckpoint() == nil)
     }
 
-    @Test("tunnel diagnostics round-trip without proxy credentials")
-    func tunnelDiagnosticsRoundTrip() throws {
-        let suiteName = "app.wloc.tests.\(UUID().uuidString)"
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
-
-        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
-        let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
-        let diagnostics = WlocTunnelDiagnostics(
-            sessionID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-            startedAt: fixedDate,
-            stoppedAt: fixedDate,
-            lastPatchedAt: fixedDate,
-            lastTargetMode: .override,
-            responseCount: 3,
-            locations: 4,
-            wifiMessages: 2,
-            cellMessages: 1,
-            skippedMessages: 0
-        )
-
-        try store.saveTunnelDiagnostics(diagnostics)
-        #expect(try store.loadTunnelDiagnostics() == diagnostics)
-
-        try store.saveTunnelDiagnostics(nil)
-        #expect(try store.loadTunnelDiagnostics() == nil)
-    }
-
     @Test("location verification evidence round-trips and clears")
     func locationVerificationRoundTrip() throws {
         let suiteName = "app.wloc.tests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
 
-        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let store = WlocSharedStore(defaults: try #require(UserDefaults(suiteName: suiteName)))
         let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
         let targetCoordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
         let actualCoordinate = try WlocCoordinate(latitude: 22.3194, longitude: 114.1695)
@@ -83,12 +56,12 @@ struct SharedStoreTests {
         #expect(try store.loadLocationVerification() == nil)
     }
 
-    @Test("concurrent tunnel reads and writes remain decodable")
+    @Test("concurrent target reads and writes remain decodable")
     func concurrentReadWrite() async throws {
         let suiteName = "app.wloc.tests.\(UUID().uuidString)"
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
 
-        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let store = WlocSharedStore(defaults: try #require(UserDefaults(suiteName: suiteName)))
         let coordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
 
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -98,20 +71,11 @@ struct SharedStoreTests {
                     try store.saveTarget(target)
                     _ = try store.loadTarget()
 
-                    let diagnostics = WlocTunnelDiagnostics(
-                        responseCount: index,
-                        locations: index,
-                        wifiMessages: index / 2,
-                        cellMessages: index / 3
-                    )
-                    try store.saveTunnelDiagnostics(diagnostics)
-                    _ = try store.loadTunnelDiagnostics()
                 }
             }
             try await group.waitForAll()
         }
 
         #expect(try store.loadTarget().mode == .override)
-        #expect(try store.loadTunnelDiagnostics() != nil)
     }
 }
