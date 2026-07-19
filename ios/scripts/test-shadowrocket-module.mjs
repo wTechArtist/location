@@ -1,10 +1,28 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const repositoryRoot = new URL("../../", import.meta.url);
 const settingsSource = await readFile(new URL("dist/wloc-settings.js", repositoryRoot), "utf8");
 const wlocSource = await readFile(new URL("dist/wloc.js", repositoryRoot), "utf8");
+const moduleSource = await readFile(new URL("ios/App/Resources/wloc.module", repositoryRoot), "utf8");
+
+const pinnedScripts = [...moduleSource.matchAll(
+  /script-path=https:\/\/raw\.githubusercontent\.com\/wTechArtist\/location\/([0-9a-f]{40})\/dist\/(wloc(?:-settings)?\.js)/g,
+)];
+assert.equal(pinnedScripts.length, 2, "the module must reference two immutable repository scripts");
+assert.equal(new Set(pinnedScripts.map((match) => match[1])).size, 1, "module scripts must use one pinned commit");
+assert.equal(/script-path=[^\n]*\/refs\/heads\//.test(moduleSource), false, "executable module scripts must not follow a mutable branch");
+
+const declaredHashes = Object.fromEntries(
+  [...moduleSource.matchAll(/^#!wloc-script-sha256=(wloc(?:-settings)?\.js):([0-9a-f]{64})$/gm)]
+    .map((match) => [match[1], match[2]]),
+);
+for (const [name, source] of [["wloc.js", wlocSource], ["wloc-settings.js", settingsSource]]) {
+  const actualHash = createHash("sha256").update(source).digest("hex");
+  assert.equal(declaredHashes[name], actualHash, `${name} does not match the module integrity metadata`);
+}
 
 function shadowrocketContext({ storage, requestURL, argument, exposeSettings = false }) {
   let finish;
