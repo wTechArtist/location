@@ -127,6 +127,54 @@ async def element_exists(
         return False
 
 
+async def wait_for_source_text(
+    client: WdaServiceClient,
+    session_id: str,
+    text: str,
+    timeout: float = 20.0,
+) -> str:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        source = await client.get_source(session_id=session_id)
+        if text in source:
+            return source
+        await asyncio.sleep(0.35)
+    raise TimeoutError(f"Timed out waiting for UI text: {text}")
+
+
+def frame_for_node_containing(source: str, element_type: str, text: str) -> tuple[int, int, int, int]:
+    root = ElementTree.fromstring(source)
+    for element in root.iter(element_type):
+        if any(text in value for node in element.iter() for value in node.attrib.values()):
+            return tuple(int(element.attrib[key]) for key in ("x", "y", "width", "height"))
+    raise RuntimeError(f"No {element_type} contains expected text: {text}")
+
+
+def accessibility_value(source: str, name: str) -> str | None:
+    root = ElementTree.fromstring(source)
+    for element in root.iter():
+        if element.attrib.get("name") == name:
+            return element.attrib.get("value") or element.attrib.get("label")
+    return None
+
+
+async def wait_for_accessibility_value_change(
+    client: WdaServiceClient,
+    session_id: str,
+    name: str,
+    previous_value: str | None,
+    timeout: float = 20.0,
+) -> str:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        source = await client.get_source(session_id=session_id)
+        value = accessibility_value(source, name)
+        if value is not None and value != previous_value:
+            return value
+        await asyncio.sleep(0.35)
+    raise TimeoutError(f"Timed out waiting for {name} to change from {previous_value}")
+
+
 async def tap_at(client: WdaServiceClient, session_id: str, x: int, y: int) -> None:
     await client._request_json(
         "POST",
@@ -494,6 +542,44 @@ async def close_shadowrocket_settings(client: WdaServiceClient, session_id: str)
     )
 
 
+async def delete_saved_places_matching(
+    client: WdaServiceClient,
+    session_id: str,
+    coordinate_text: str,
+) -> int:
+    deleted = 0
+    while True:
+        source = await client.get_source(session_id=session_id)
+        try:
+            x, y, width, height = frame_for_node_containing(
+                source,
+                "XCUIElementTypeCell",
+                coordinate_text,
+            )
+        except RuntimeError:
+            return deleted
+        await client.swipe(
+            x + width - 20,
+            y + height // 2,
+            x + 80,
+            y + height // 2,
+            duration=0.8,
+            session_id=session_id,
+        )
+        await asyncio.sleep(0.75)
+        await tap_first(
+            client,
+            session_id,
+            [
+                ("accessibility id", "删除"),
+                ("accessibility id", "Delete"),
+                ("xpath", '//XCUIElementTypeButton[@name="删除" or @name="Delete"]'),
+            ],
+        )
+        deleted += 1
+        await asyncio.sleep(0.75)
+
+
 async def dismiss_finished_workflow(client: WdaServiceClient, session_id: str) -> bool:
     if not await element_exists(
         client,
@@ -681,6 +767,126 @@ async def restore_only(
     )
 
 
+async def map_features(
+    client: WdaServiceClient,
+    session_id: str,
+    output_dir: Path,
+) -> list[dict]:
+    evidence: list[dict] = []
+    await dismiss_finished_workflow(client, session_id)
+
+    trace("checking coordinate parsing from the search sheet")
+    await tap_first(client, session_id, [("accessibility id", "wloc.search")])
+    coordinate_field = await wait_for_first(
+        client,
+        session_id,
+        [
+            ("accessibility id", "粘贴 Apple/高德链接或纬度,经度"),
+            ("xpath", '//XCUIElementTypeTextField[contains(@value,"粘贴 Apple")]'),
+        ],
+    )
+    await client.click(element_id=coordinate_field, session_id=session_id)
+    await client.send_keys("23.129100, 113.264400", session_id=session_id)
+    await tap_first(client, session_id, [("accessibility id", "解析并选择")])
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.map")])
+    await wait_for_source_text(client, session_id, "23.129100, 113.264400")
+    evidence.append(await capture(client, session_id, output_dir, "map-coordinate-parsed"))
+
+    trace("checking saved-place roundtrip")
+    await tap_first(client, session_id, [("accessibility id", "wloc.saved-places")])
+    deleted = await delete_saved_places_matching(client, session_id, "23.129100, 113.264400")
+    if deleted:
+        trace(f"removed {deleted} stale temporary saved place(s)")
+    await tap_first(client, session_id, [("accessibility id", "关闭")])
+    await tap_first(client, session_id, [("accessibility id", "收藏")])
+    await tap_first(client, session_id, [("accessibility id", "wloc.saved-places")])
+    await wait_for_source_text(client, session_id, "收藏位置")
+    await wait_for_source_text(client, session_id, "23.129100, 113.264400")
+    evidence.append(await capture(client, session_id, output_dir, "map-saved-place-listed"))
+    await tap_first(
+        client,
+        session_id,
+        [("xpath", '//XCUIElementTypeButton[contains(@name,"23.129100")]')],
+    )
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.map")])
+    await wait_for_source_text(client, session_id, "23.129100, 113.264400")
+    evidence.append(await capture(client, session_id, output_dir, "map-saved-place-selected"))
+
+    trace("removing the temporary saved place")
+    await tap_first(client, session_id, [("accessibility id", "wloc.saved-places")])
+    deleted = await delete_saved_places_matching(client, session_id, "23.129100, 113.264400")
+    if deleted != 1:
+        raise RuntimeError(f"Expected to remove one temporary saved place, removed {deleted}")
+    evidence.append(await capture(client, session_id, output_dir, "map-saved-place-cleaned"))
+    await tap_first(client, session_id, [("accessibility id", "关闭")])
+
+    trace("checking MapKit place search")
+    await tap_first(client, session_id, [("accessibility id", "wloc.search")])
+    query_field = await wait_for_first(
+        client,
+        session_id,
+        [
+            ("accessibility id", "地点、地址"),
+            ("xpath", '//XCUIElementTypeTextField[contains(@value,"地点、地址")]'),
+        ],
+    )
+    await client.click(element_id=query_field, session_id=session_id)
+    await client.send_keys("广州塔\n", session_id=session_id)
+    search_result = await wait_for_first(
+        client,
+        session_id,
+        [("xpath", '//XCUIElementTypeButton[contains(@name,"广州塔")]')],
+        timeout=30,
+    )
+    evidence.append(await capture(client, session_id, output_dir, "map-search-results"))
+    await client.click(element_id=search_result, session_id=session_id)
+    await wait_for_first(client, session_id, [("accessibility id", "wloc.map")])
+    await wait_for_source_text(client, session_id, "广州塔")
+    evidence.append(await capture(client, session_id, output_dir, "map-search-selected"))
+
+    trace("checking current-location selection")
+    source = await client.get_source(session_id=session_id)
+    previous_coordinate = accessibility_value(source, "wloc.selected-coordinate")
+    await tap_first(client, session_id, [("accessibility id", "wloc.current-location")])
+    try:
+        selected_coordinate = await wait_for_accessibility_value_change(
+            client,
+            session_id,
+            "wloc.selected-coordinate",
+            previous_coordinate,
+            timeout=12,
+        )
+    except TimeoutError:
+        if await element_exists(
+            client,
+            session_id,
+            [
+                ("xpath", '//XCUIElementTypeAlert//XCUIElementTypeButton[@name="好"]'),
+                ("xpath", "//XCUIElementTypeAlert//XCUIElementTypeButton[last()]"),
+            ],
+        ):
+            await tap_first(
+                client,
+                session_id,
+                [
+                    ("xpath", '//XCUIElementTypeAlert//XCUIElementTypeButton[@name="好"]'),
+                    ("xpath", "//XCUIElementTypeAlert//XCUIElementTypeButton[last()]"),
+                ],
+            )
+        await asyncio.sleep(3)
+        await tap_first(client, session_id, [("accessibility id", "wloc.current-location")])
+        selected_coordinate = await wait_for_accessibility_value_change(
+            client,
+            session_id,
+            "wloc.selected-coordinate",
+            previous_coordinate,
+            timeout=20,
+        )
+    trace(f"current-location selection changed coordinate to {selected_coordinate}")
+    evidence.append(await capture(client, session_id, output_dir, "map-current-location"))
+    return evidence
+
+
 async def run_probe(args: argparse.Namespace) -> dict:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -721,6 +927,8 @@ async def run_probe(args: argparse.Namespace) -> dict:
                     args.app_bundle_id,
                     output_dir,
                 )
+            elif args.scenario == "map-features":
+                evidence = await map_features(client, session_id, output_dir)
             elif args.scenario == "settings-probe":
                 evidence = await probe_location_settings(client, session_id, output_dir)
             else:
@@ -756,6 +964,7 @@ def parse_args() -> argparse.Namespace:
             "module-check",
             "full-location-roundtrip",
             "restore-only",
+            "map-features",
             "settings-probe",
         ),
         default="probe",
