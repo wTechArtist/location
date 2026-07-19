@@ -68,15 +68,24 @@ struct LocationSearchView: View {
 
     private func choose(_ item: MKMapItem) {
         let coordinate = item.placemark.coordinate
-        guard let target = try? WlocCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude) else { return }
+        guard let mapCoordinate = try? WlocCoordinate(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+        ),
+        let target = try? CoordinateConversion.gcj02ToWGS84(mapCoordinate)
+        else { return }
         model.select(target, name: item.name ?? "")
         moveCamera(to: target)
         dismiss()
     }
 
     private func moveCamera(to coordinate: WlocCoordinate) {
+        let displayCoordinate = (try? CoordinateConversion.wgs84ToGCJ02(coordinate)) ?? coordinate
         cameraPosition = .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude),
+            center: CLLocationCoordinate2D(
+                latitude: displayCoordinate.latitude,
+                longitude: displayCoordinate.longitude
+            ),
             span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
         ))
     }

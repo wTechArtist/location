@@ -16,8 +16,14 @@ struct SavedPlacesView: View {
                 ForEach(model.places) { place in
                     Button {
                         model.select(place.coordinate, name: place.name)
+                        let displayCoordinate = (
+                            try? CoordinateConversion.wgs84ToGCJ02(place.coordinate)
+                        ) ?? place.coordinate
                         cameraPosition = .region(MKCoordinateRegion(
-                            center: CLLocationCoordinate2D(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude),
+                            center: CLLocationCoordinate2D(
+                                latitude: displayCoordinate.latitude,
+                                longitude: displayCoordinate.longitude
+                            ),
                             span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
                         ))
                         dismiss()

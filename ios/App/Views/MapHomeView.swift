@@ -15,9 +15,13 @@ struct MapHomeView: View {
                 Map(position: $cameraPosition) {
                     UserAnnotation()
                     if let coordinate = model.selectedCoordinate {
+                        let displayCoordinate = (try? CoordinateConversion.wgs84ToGCJ02(coordinate)) ?? coordinate
                         Marker(
                             model.selectedName.isEmpty ? "目标位置" : model.selectedName,
-                            coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                            coordinate: CLLocationCoordinate2D(
+                                latitude: displayCoordinate.latitude,
+                                longitude: displayCoordinate.longitude
+                            )
                         )
                         .tint(.red)
                     }
@@ -30,7 +34,11 @@ struct MapHomeView: View {
                 }
                 .onTapGesture { point in
                     guard let coordinate = proxy.convert(point, from: .local),
-                          let target = try? WlocCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                          let mapCoordinate = try? WlocCoordinate(
+                              latitude: coordinate.latitude,
+                              longitude: coordinate.longitude
+                          ),
+                          let target = try? CoordinateConversion.gcj02ToWGS84(mapCoordinate)
                     else { return }
                     model.select(target)
                 }
