@@ -30,6 +30,7 @@
 
 - [x] 选择目标坐标后，`/wloc-settings/save` 返回成功，随后 `/wloc-settings/query` 回读同一目标。
 - [x] `shadowrocket://disconnect` 与 `shadowrocket://connect` 只记录为“指令已发出”，不得当作 VPN 状态证据。
+- [ ] Shadowrocket 从关闭状态开始时，WLOC 的连接指令能自动启动隧道；当前真机上 `shadowrocket://connect` 与 `shadowrocket://open` 均只打开 Shadowrocket，仍需用户点一次连接开关。
 - [x] 用户按界面提示手动关闭、重新开启系统定位服务；WLOC 无法代替用户切换系统总开关。
 - [x] 重新请求系统定位后，回读坐标与目标距离在界面阈值内，才显示“定位已验证”。
 - [ ] Apple 定位响应未被模块处理、定位权限被拒绝、回读超时或距离超阈值时，只能显示未生效/无法验证。
@@ -40,7 +41,8 @@
 - [x] 恢复操作先清除 Shadowrocket 模块中的持久化目标，`/wloc-settings/query` 确认已清除。
 - [x] 断开/连接 Shadowrocket 指令与系统定位手动关/开流程完整执行。
 - [x] WLOC 重新取得真实定位；不得以“指令已发出”代替恢复结果。
-- [ ] 最终状态为系统定位服务开启、Shadowrocket 正常连接，原有代理配置仍能使用。
+- [x] 最终状态为系统定位服务开启、Shadowrocket 连接开关开启，并且 WLOC 模块查询仍可用。
+- [ ] 恢复后原有代理配置的实际外网请求仍能使用。
 
 ## 稳定性与相互影响
 
@@ -66,5 +68,7 @@
 - 原始证据：`C:\Users\weg\AppData\Local\WlocAutomation\evidence\full-location-roundtrip-20260719-final`，包含 `result.json` 及 15 组关键阶段 PNG 截图与 XML 可访问性树。
 - 地图补充验收：场景 `map-features` 退出码 0；真机完成坐标文本解析、收藏写入/回选/清理、MapKit 搜索“广州塔”并选中，以及“当前位置”回到 `23.175781, 113.417583`。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\map-features-20260719-d`，包含 `result.json` 及 7 组 PNG/XML。地图长按和独立历史记录尚未实现/验证，保持未勾选。
 - 配置取消验收：场景 `config-picker-cancel` 退出码 0；真实 iOS“文件”选择器成功打开并取消，返回 WLOC 后待分享配置状态未改变，也未误报读取失败或导入成功。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\config-picker-cancel-20260719-a`，包含 `result.json` 及 2 组 PNG/XML。真实配置选择、系统分享取消/Shadowrocket 拒绝和最终确认尚未执行，保持未勾选。
+- Shadowrocket 自动连接复测：在隧道明确关闭时，WLOC 依次发出文档规定的 `shadowrocket://connect` 与 `shadowrocket://open`，Shadowrocket 均被打开但开关保持关闭，场景按预期以退出码 1 记录失败。证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\final-connection-state-20260719-d`。该失败不降级、不计为自动连接通过。
+- 最终状态恢复：测试驱动模拟用户点一次 Shadowrocket 开关后，场景 `shadowrocket-ui-recovery` 退出码 0，开关为开启且 WLOC 模块恢复可达；证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\shadowrocket-ui-recovery-20260719-d`。随后 `restore-only` 再次完成模块坐标清除、系统定位服务关/开和真实定位回读，证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\restore-final-real-location-20260719-a`。最终状态复核 `final-connection-state` 退出码 0、`result.json` 明确记录 `"succeeded": true`，Shadowrocket 开关值为 `1` 且 WLOC 显示“模块可用 · 真实定位透传”；证据位于 `C:\Users\weg\AppData\Local\WlocAutomation\evidence\final-connection-state-20260719-g`。测试驱动点击不代表正式 App 获得跨 App 控制权限。
 
-当前结论：核心定位往返链路已在真实 iPhone 上自动化通过，包括模块检测、地图选点、虚拟定位核验、恢复真实定位以及两轮系统定位服务关/开。配置文件真实导入、蜂窝网络/常用 App 验证、失败场景和 20 次稳定性循环仍未执行，对应复选框保持未勾选，因此暂不声明“全部验收完成”。
+当前结论：核心定位往返链路已在真实 iPhone 上自动化通过，包括模块检测、地图选点、虚拟定位核验、恢复真实定位以及两轮系统定位服务关/开。Shadowrocket 的连接 URL 在本机从关闭状态无法自动开启隧道，是当前明确未通过项；配置文件真实导入、蜂窝网络/常用 App 验证、失败场景和 20 次稳定性循环也仍未执行，因此暂不声明“全部验收完成”。

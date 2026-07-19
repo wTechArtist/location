@@ -217,6 +217,15 @@ def source_elements(source: str, element_type: str) -> list[dict[str, str]]:
     return [element.attrib for element in root.iter(element_type)]
 
 
+def shadowrocket_is_connected(source: str) -> bool:
+    switches = source_elements(source, "XCUIElementTypeSwitch")
+    if switches:
+        return switches[0].get("value", "").strip().lower() in {"1", "true", "on"}
+    return ("已连接" in source or "Connected" in source) and not (
+        "未连接" in source or "Not Connected" in source
+    )
+
+
 async def ensure_location_services(
     client: WdaServiceClient,
     session_id: str,
@@ -943,6 +952,121 @@ async def config_picker_cancel(
     return evidence
 
 
+async def final_connection_state(
+    client: WdaServiceClient,
+    wloc_bundle_id: str,
+    output_dir: Path,
+) -> list[dict]:
+    evidence: list[dict] = []
+    trace("requesting the final Shadowrocket connection through WLOC")
+    wloc_session = await start_app_session(client, wloc_bundle_id)
+    await dismiss_finished_workflow(client, wloc_session)
+    await tap_first(client, wloc_session, [("accessibility id", "wloc.settings")])
+    await wait_for_first(
+        client,
+        wloc_session,
+        [("accessibility id", "wloc.settings.screen")],
+        timeout=15,
+    )
+    await tap_first(
+        client,
+        wloc_session,
+        [
+            ("accessibility id", "发出连接指令"),
+            ("accessibility id", "Send Connect Command"),
+        ],
+    )
+    await asyncio.sleep(4)
+
+    trace("capturing the foreground Shadowrocket without relaunching it")
+    evidence.append(await capture_global(client, output_dir, "shadowrocket-connect-command-state"))
+    shadowrocket_source = await client.get_source()
+    is_connected = shadowrocket_is_connected(shadowrocket_source)
+    if not is_connected:
+        trace("connect URL did not start the tunnel; trying Shadowrocket's documented open URL")
+        wloc_session = await start_app_session(client, wloc_bundle_id)
+        await tap_first(client, wloc_session, [("accessibility id", "wloc.settings")])
+        await wait_for_first(
+            client,
+            wloc_session,
+            [("accessibility id", "wloc.settings.screen")],
+            timeout=15,
+        )
+        await tap_first(
+            client,
+            wloc_session,
+            [("accessibility id", "wloc.settings.open-shadowrocket")],
+        )
+        await asyncio.sleep(4)
+        shadowrocket_source = await client.get_source()
+        is_connected = shadowrocket_is_connected(shadowrocket_source)
+    evidence.append(await capture_global(client, output_dir, "shadowrocket-final-state"))
+    if not is_connected:
+        raise RuntimeError("Neither Shadowrocket connect nor open URL reported a connected state")
+
+    trace("returning to WLOC and verifying the connected module is reachable")
+    wloc_session = await start_app_session(client, wloc_bundle_id)
+    await dismiss_finished_workflow(client, wloc_session)
+    evidence.extend(await validate_shadowrocket_module(client, wloc_session, output_dir))
+    await close_shadowrocket_settings(client, wloc_session)
+    return evidence
+
+
+async def recover_shadowrocket_with_ui(
+    client: WdaServiceClient,
+    wloc_bundle_id: str,
+    output_dir: Path,
+) -> list[dict]:
+    evidence: list[dict] = []
+    trace("opening Shadowrocket through WLOC without restarting the VPN app")
+    wloc_session = await start_app_session(client, wloc_bundle_id)
+    await dismiss_finished_workflow(client, wloc_session)
+    await tap_first(client, wloc_session, [("accessibility id", "wloc.settings")])
+    await wait_for_first(
+        client,
+        wloc_session,
+        [("accessibility id", "wloc.settings.screen")],
+        timeout=15,
+    )
+    await tap_first(
+        client,
+        wloc_session,
+        [("accessibility id", "wloc.settings.open-shadowrocket")],
+    )
+    await asyncio.sleep(2)
+    source = await client.get_source()
+    is_connected = shadowrocket_is_connected(source)
+    if not is_connected:
+        switches = source_elements(source, "XCUIElementTypeSwitch")
+        if not switches:
+            raise RuntimeError("Shadowrocket connection switch was not exposed to UI automation")
+        trace("tapping the Shadowrocket connection switch as a simulated user")
+        connection_switch = switches[0]
+        switch_x = int(float(connection_switch["x"]))
+        switch_y = int(float(connection_switch["y"]))
+        switch_width = int(float(connection_switch["width"]))
+        switch_height = int(float(connection_switch["height"]))
+        await tap_at(
+            client,
+            wloc_session,
+            switch_x + switch_width // 2,
+            switch_y + switch_height // 2,
+        )
+        await asyncio.sleep(5)
+    evidence.append(await capture_global(client, output_dir, "shadowrocket-ui-recovered"))
+    source = await client.get_source()
+    is_connected = shadowrocket_is_connected(source)
+    if not is_connected:
+        raise RuntimeError("Shadowrocket remained disconnected after the simulated user tap")
+
+    trace("verifying WLOC module communication after UI recovery")
+    wloc_session = await start_app_session(client, wloc_bundle_id)
+    await dismiss_finished_workflow(client, wloc_session)
+    evidence.extend(await validate_shadowrocket_module(client, wloc_session, output_dir))
+    await close_shadowrocket_settings(client, wloc_session)
+    return evidence
+
+
 async def run_probe(args: argparse.Namespace) -> dict:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -990,6 +1114,18 @@ async def run_probe(args: argparse.Namespace) -> dict:
                 evidence = await map_features(client, session_id, output_dir)
             elif args.scenario == "config-picker-cancel":
                 evidence = await config_picker_cancel(client, session_id, output_dir)
+            elif args.scenario == "final-connection-state":
+                evidence = await final_connection_state(
+                    client,
+                    args.app_bundle_id,
+                    output_dir,
+                )
+            elif args.scenario == "shadowrocket-ui-recovery":
+                evidence = await recover_shadowrocket_with_ui(
+                    client,
+                    args.app_bundle_id,
+                    output_dir,
+                )
             elif args.scenario == "settings-probe":
                 evidence = await probe_location_settings(client, session_id, output_dir)
             else:
@@ -1033,6 +1169,8 @@ def parse_args() -> argparse.Namespace:
             "restore-only",
             "map-features",
             "config-picker-cancel",
+            "final-connection-state",
+            "shadowrocket-ui-recovery",
             "settings-probe",
         ),
         default="probe",
@@ -1071,6 +1209,7 @@ def main() -> None:
     output_dir = Path(args.output_dir).resolve()
     try:
         result = run_with_startup_retries(args)
+        result["succeeded"] = True
         write_result(output_dir, result)
     except Exception as error:
         write_result(
