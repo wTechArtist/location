@@ -55,6 +55,34 @@ struct SharedStoreTests {
         #expect(try store.loadTunnelDiagnostics() == nil)
     }
 
+    @Test("location verification evidence round-trips and clears")
+    func locationVerificationRoundTrip() throws {
+        let suiteName = "app.wloc.tests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let store = try WlocSharedStore(appGroupIdentifier: suiteName)
+        let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let targetCoordinate = try WlocCoordinate(latitude: 22.3193, longitude: 114.1694)
+        let actualCoordinate = try WlocCoordinate(latitude: 22.3194, longitude: 114.1695)
+        let target = try WlocTarget(mode: .override, coordinate: targetCoordinate, updatedAt: fixedDate)
+        let evidence = LocationVerificationEvidence(
+            verifiedAt: fixedDate,
+            target: target,
+            actualCoordinate: actualCoordinate,
+            horizontalAccuracy: 35,
+            distanceMeters: 15,
+            thresholdMeters: 150,
+            succeeded: true,
+            message: "目标定位已核验"
+        )
+
+        try store.saveLocationVerification(evidence)
+        #expect(try store.loadLocationVerification() == evidence)
+
+        try store.saveLocationVerification(nil)
+        #expect(try store.loadLocationVerification() == nil)
+    }
+
     @Test("concurrent tunnel reads and writes remain decodable")
     func concurrentReadWrite() async throws {
         let suiteName = "app.wloc.tests.\(UUID().uuidString)"

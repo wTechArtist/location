@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import SwiftUI
+import UIKit
 import WlocCore
 
 @MainActor
@@ -41,6 +42,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var caTrustConfirmed = false
     @Published var certificateProfileURL: URL?
     @Published private(set) var tunnelDiagnostics: WlocTunnelDiagnostics?
+    @Published private(set) var locationVerification: LocationVerificationEvidence?
     @Published var diagnosticsReportURL: URL?
 
     let tunnel: TunnelController
@@ -83,6 +85,7 @@ final class AppModel: ObservableObject {
             hasDeviceCA = try certificateManager.hasCertificate()
             caTrustConfirmed = sharedStore.isCATrustConfirmed()
             tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
+            locationVerification = try sharedStore.loadLocationVerification()
         } catch {
             present(error, title: "载入失败")
         }
@@ -195,6 +198,7 @@ final class AppModel: ObservableObject {
     func refreshTunnelDiagnostics() {
         do {
             tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
+            locationVerification = try sharedStore.loadLocationVerification()
         } catch {
             present(error, title: "读取诊断失败")
         }
@@ -203,14 +207,21 @@ final class AppModel: ObservableObject {
     func prepareDiagnosticsReport() {
         do {
             tunnelDiagnostics = try sharedStore.loadTunnelDiagnostics()
+            locationVerification = try sharedStore.loadLocationVerification()
             let activeProfile = profiles.first { $0.id == activeProfileID }
+            let device = UIDevice.current
             let report = DiagnosticsReport(
                 exportedAt: .now,
                 appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
                 appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+                deviceModel: device.model,
+                systemName: device.systemName,
+                systemVersion: device.systemVersion,
                 tunnelState: tunnel.state.label,
                 activeProfileFormat: activeProfile?.format.rawValue,
-                diagnostics: tunnelDiagnostics
+                currentTarget: try sharedStore.loadTarget(),
+                locationVerification: locationVerification,
+                tunnelDiagnostics: tunnelDiagnostics
             )
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
@@ -288,6 +299,8 @@ final class AppModel: ObservableObject {
                 workflow = .verifying
                 let actualLocation = try await location.freshLocation()
                 let verification = try verify(actualLocation, target: pendingTarget)
+                try? sharedStore.saveLocationVerification(verification)
+                locationVerification = verification
                 if verification.succeeded {
                     workflow = .completed(verification.message)
                 } else {
@@ -296,6 +309,19 @@ final class AppModel: ObservableObject {
                 try? sharedStore.saveLocationCycleCheckpoint(nil)
                 self.pendingTarget = nil
             } catch {
+                if let pendingTarget {
+                    let verification = LocationVerificationEvidence(
+                        target: pendingTarget,
+                        actualCoordinate: nil,
+                        horizontalAccuracy: nil,
+                        distanceMeters: nil,
+                        thresholdMeters: nil,
+                        succeeded: false,
+                        message: "定位服务与 VPN 已开启，但本次未取得可用的定位回读证据。"
+                    )
+                    try? sharedStore.saveLocationVerification(verification)
+                    locationVerification = verification
+                }
                 try? sharedStore.saveLocationCycleCheckpoint(nil)
                 pendingTarget = nil
                 workflow = .failed("定位服务与 VPN 已开启，但无法证明定位切换生效：\(error.localizedDescription)")
@@ -342,6 +368,8 @@ final class AppModel: ObservableObject {
         previousTarget = try sharedStore.loadTarget()
         pendingTarget = target
         do {
+            try sharedStore.saveLocationVerification(nil)
+            locationVerification = nil
             try saveLocationCycleCheckpoint(stage: .waitingForLocationOff)
             try await captureRealLocationBaselineIfNeeded(target: target, previousTarget: previousTarget)
             try await tunnel.stop()
@@ -490,7 +518,7 @@ final class AppModel: ObservableObject {
         activeProfileID = await profileRepository.activeProfileID()
     }
 
-    private func verify(_ actual: CLLocation, target: WlocTarget) throws -> (succeeded: Bool, message: String) {
+    private func verify(_ actual: CLLocation, target: WlocTarget) throws -> LocationVerificationEvidence {
         let actualCoordinate = try WlocCoordinate(
             latitude: actual.coordinate.latitude,
             longitude: actual.coordinate.longitude
@@ -501,27 +529,50 @@ final class AppModel: ObservableObject {
             let distance = distance(from: actualCoordinate, to: expected)
             let threshold = max(150, Double(target.accuracy) * 5, accuracyAllowance)
             if distance <= threshold {
-                return (
-                    true,
-                    String(format: "目标定位已核验：回读距离目标 %.0f 米（阈值 %.0f 米）；定位服务与 VPN 均已开启。", distance, threshold)
+                return LocationVerificationEvidence(
+                    target: target,
+                    actualCoordinate: actualCoordinate,
+                    horizontalAccuracy: actual.horizontalAccuracy,
+                    distanceMeters: distance,
+                    thresholdMeters: threshold,
+                    succeeded: true,
+                    message: String(format: "目标定位已核验：回读距离目标 %.0f 米（阈值 %.0f 米）；定位服务与 VPN 均已开启。", distance, threshold)
                 )
             }
-            return (
-                false,
-                String(format: "目标定位未生效：系统回读位置距离目标 %.0f 米，超过 %.0f 米阈值。VPN 已连接，但不能据此误报成功。", distance, threshold)
+            return LocationVerificationEvidence(
+                target: target,
+                actualCoordinate: actualCoordinate,
+                horizontalAccuracy: actual.horizontalAccuracy,
+                distanceMeters: distance,
+                thresholdMeters: threshold,
+                succeeded: false,
+                message: String(format: "目标定位未生效：系统回读位置距离目标 %.0f 米，超过 %.0f 米阈值。VPN 已连接，但不能据此误报成功。", distance, threshold)
             )
         }
 
         if previousTarget.mode == .passthrough {
-            return (true, "已取得切换后的新系统定位；当前为透传模式，定位服务与 VPN 均已开启。")
+            return LocationVerificationEvidence(
+                target: target,
+                actualCoordinate: actualCoordinate,
+                horizontalAccuracy: actual.horizontalAccuracy,
+                distanceMeters: nil,
+                thresholdMeters: nil,
+                succeeded: true,
+                message: "已取得切换后的新系统定位；当前为透传模式，定位服务与 VPN 均已开启。"
+            )
         }
 
         let fakeDistance = previousTarget.coordinate.map { distance(from: actualCoordinate, to: $0) }
         let fakeThreshold = max(250, Double(previousTarget.accuracy) * 5, accuracyAllowance)
         if let fakeDistance, fakeDistance > fakeThreshold {
-            return (
-                true,
-                String(format: "真实定位已核验：新位置与原虚拟位置相距 %.0f 米；定位服务与 VPN 均已开启。", fakeDistance)
+            return LocationVerificationEvidence(
+                target: target,
+                actualCoordinate: actualCoordinate,
+                horizontalAccuracy: actual.horizontalAccuracy,
+                distanceMeters: fakeDistance,
+                thresholdMeters: fakeThreshold,
+                succeeded: true,
+                message: String(format: "真实定位已核验：新位置与原虚拟位置相距 %.0f 米；定位服务与 VPN 均已开启。", fakeDistance)
             )
         }
 
@@ -529,16 +580,26 @@ final class AppModel: ObservableObject {
             let baselineDistance = distance(from: actualCoordinate, to: baseline.coordinate)
             let baselineThreshold = max(3_000, accuracyAllowance)
             if baselineDistance <= baselineThreshold {
-                return (
-                    true,
-                    String(format: "真实定位已核验：新位置距切换前真实基线 %.0f 米；定位服务与 VPN 均已开启。", baselineDistance)
+                return LocationVerificationEvidence(
+                    target: target,
+                    actualCoordinate: actualCoordinate,
+                    horizontalAccuracy: actual.horizontalAccuracy,
+                    distanceMeters: baselineDistance,
+                    thresholdMeters: baselineThreshold,
+                    succeeded: true,
+                    message: String(format: "真实定位已核验：新位置距切换前真实基线 %.0f 米；定位服务与 VPN 均已开启。", baselineDistance)
                 )
             }
         }
 
-        return (
-            false,
-            "已切换为真实定位透传，且定位服务与 VPN 均已开启；但回读位置无法与原虚拟位置或已保存真实基线区分，因此不宣称恢复已验证。"
+        return LocationVerificationEvidence(
+            target: target,
+            actualCoordinate: actualCoordinate,
+            horizontalAccuracy: actual.horizontalAccuracy,
+            distanceMeters: fakeDistance,
+            thresholdMeters: fakeThreshold,
+            succeeded: false,
+            message: "已切换为真实定位透传，且定位服务与 VPN 均已开启；但回读位置无法与原虚拟位置或已保存真实基线区分，因此不宣称恢复已验证。"
         )
     }
 
@@ -561,11 +622,16 @@ final class AppModel: ObservableObject {
 }
 
 private struct DiagnosticsReport: Encodable {
-    let schemaVersion = 1
+    let schemaVersion = 2
     var exportedAt: Date
     var appVersion: String
     var appBuild: String
+    var deviceModel: String
+    var systemName: String
+    var systemVersion: String
     var tunnelState: String
     var activeProfileFormat: String?
-    var diagnostics: WlocTunnelDiagnostics?
+    var currentTarget: WlocTarget
+    var locationVerification: LocationVerificationEvidence?
+    var tunnelDiagnostics: WlocTunnelDiagnostics?
 }

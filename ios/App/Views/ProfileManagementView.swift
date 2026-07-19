@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 import WlocCore
@@ -92,6 +93,22 @@ struct ProfileManagementView: View {
                         Text("尚无 Packet Tunnel 会话记录。")
                             .foregroundStyle(.secondary)
                     }
+                    if let verification = model.locationVerification {
+                        LabeledContent("定位核验", value: verification.succeeded ? "通过" : "未通过")
+                        LabeledContent(
+                            "系统回读",
+                            value: verification.actualCoordinate.map {
+                                String(format: "%.6f, %.6f", $0.latitude, $0.longitude)
+                            } ?? "未取得"
+                        )
+                        if let distance = verification.distanceMeters,
+                           let threshold = verification.thresholdMeters {
+                            LabeledContent(
+                                "距离 / 阈值",
+                                value: String(format: "%.0f m / %.0f m", distance, threshold)
+                            )
+                        }
+                    }
                     Button("刷新诊断") { model.refreshTunnelDiagnostics() }
                     Button("生成无凭据诊断文件") { model.prepareDiagnosticsReport() }
                     if let url = model.diagnosticsReportURL {
@@ -102,7 +119,7 @@ struct ProfileManagementView: View {
                 } header: {
                     Text("真机诊断")
                 } footer: {
-                    Text("仅记录隧道状态和 WLOC 补丁计数，不包含节点地址、用户名、密码或配置正文；计数不能替代真实 iPhone 的定位回读与录屏。")
+                    Text("记录隧道状态、WLOC 补丁计数及定位回读证据，不包含节点地址、用户名、密码或配置正文；诊断文件不能替代真实 iPhone 录屏。")
                 }
 
                 Section {

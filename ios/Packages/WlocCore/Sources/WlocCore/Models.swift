@@ -93,6 +93,37 @@ public struct LocationCycleCheckpoint: Codable, Hashable, Sendable {
     }
 }
 
+public struct LocationVerificationEvidence: Codable, Equatable, Sendable {
+    public var verifiedAt: Date
+    public var target: WlocTarget
+    public var actualCoordinate: WlocCoordinate?
+    public var horizontalAccuracy: Double?
+    public var distanceMeters: Double?
+    public var thresholdMeters: Double?
+    public var succeeded: Bool
+    public var message: String
+
+    public init(
+        verifiedAt: Date = .now,
+        target: WlocTarget,
+        actualCoordinate: WlocCoordinate?,
+        horizontalAccuracy: Double?,
+        distanceMeters: Double?,
+        thresholdMeters: Double?,
+        succeeded: Bool,
+        message: String
+    ) {
+        self.verifiedAt = verifiedAt
+        self.target = target
+        self.actualCoordinate = actualCoordinate
+        self.horizontalAccuracy = horizontalAccuracy
+        self.distanceMeters = distanceMeters
+        self.thresholdMeters = thresholdMeters
+        self.succeeded = succeeded
+        self.message = String(message.prefix(500))
+    }
+}
+
 public struct WlocTunnelDiagnostics: Codable, Equatable, Sendable {
     public var sessionID: UUID
     public var startedAt: Date
