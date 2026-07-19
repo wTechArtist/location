@@ -20,6 +20,7 @@ settings:
     KEYCHAIN_ACCESS_GROUP: $(AppIdentifierPrefix)$(BASE_BUNDLE_IDENTIFIER).shared
   configs:
     Debug:
+      ONLY_ACTIVE_ARCH: true
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
 packages:
   WlocCore:
