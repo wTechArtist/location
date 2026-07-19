@@ -20,7 +20,7 @@
 1. 在地图点击或搜索目标位置，点击“确定定位”。
 2. WLOC 通过 `https://gs-loc.apple.com/wloc-settings/save` 写入坐标并立即查询确认。
 3. WLOC 发出 `shadowrocket://disconnect`，用户按界面提示手动关闭系统定位总开关。
-4. WLOC 发出 `shadowrocket://connect`，用户手动重新开启系统定位总开关。
+4. 在已确认断开的前提下，WLOC 发出 `shadowrocket://toggle` 重新连接，用户手动重新开启系统定位总开关。
 5. WLOC 再次查询模块并请求新的系统定位。坐标距离不满足阈值时不会报告成功。
 
 “恢复真实定位”使用同一流程，但先清除 Shadowrocket 中的 `wloc_settings` 持久化坐标。
@@ -30,6 +30,8 @@
 “Shadowrocket 设置 > 导入配置”可从“文件”选择 `.conf` 或其他配置，然后通过系统分享面板交给 Shadowrocket 打开。WLOC 不解析、保存或声称已经导入代理凭据；最终结果以 Shadowrocket 的确认界面为准。
 
 ## macOS 构建与测试
+
+以后修改 App 后的版本升级、GitHub Actions、Mac 本地打包、Sideloadly 覆盖安装和真机验收步骤，见[《WLOC iOS 更新与打包指南》](../docs/ios-packaging.md)。
 
 需要 Xcode 16.4 和 XcodeGen：
 

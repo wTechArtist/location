@@ -11,19 +11,19 @@
 ## 订阅地址
 
 **Surge:**
-https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/wloc.sgmodule
+https://raw.githubusercontent.com/wTechArtist/location/refs/heads/master/modules/wloc.sgmodule
 
 **Quantumult X:**
-https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/wloc.conf
+https://raw.githubusercontent.com/wTechArtist/location/refs/heads/master/modules/wloc.conf
 
 **Loon:**
-https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/wloc.lpx
+https://raw.githubusercontent.com/wTechArtist/location/refs/heads/master/modules/wloc.lpx
 
 **Stash:**
-https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/wloc.stoverride
+https://raw.githubusercontent.com/wTechArtist/location/refs/heads/master/modules/wloc.stoverride
 
 **Shadowrocket(小火箭):**
-https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/wloc.module
+https://raw.githubusercontent.com/wTechArtist/location/refs/heads/master/modules/wloc.module
 
 > Egern 可直接使用 Surge 模块
 > Stash 请直接订阅上面的 `.stoverride`，无需用 Script Hub 转换
@@ -180,7 +180,7 @@ https://raw.githubusercontent.com/wTechArtist/location/refs/heads/main/modules/w
 
 **一键部署（Workers）：**
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wTechArtist/location/tree/main/worker)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wTechArtist/location/tree/master/worker)
 
 > 一键部署仅支持 Workers 模式，点击按钮后按提示授权即可完成部署。
 
