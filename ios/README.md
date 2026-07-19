@@ -41,6 +41,15 @@ xcodegen generate
 
 脚本会执行 Swift Package 测试、无签名真机架构编译和 iPhone Simulator 测试。
 
+生成经过结构审计、供本地重签名使用的无签名 IPA：
+
+```sh
+WLOC_BASE_BUNDLE_IDENTIFIER=com.example.wloc \
+./scripts/package-unsigned-macos.sh
+```
+
+该脚本会验证 arm64、标准 `Payload/WLOC.app` 布局、内置 `wloc.module`，并确认不含签名、App Extension 或 Libbox。无签名 IPA 不能直接安装，也不能替代[方案 A 真机验收清单](../docs/ios-acceptance-scheme-a.md)。
+
 签名归档：
 
 ```sh

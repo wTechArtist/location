@@ -28,3 +28,15 @@ jobs:
         run: brew install xcodegen
       - name: Test Shadowrocket-based iOS app
         run: ios/scripts/test-macos.sh
+      - name: Package audited unsigned IPA
+        env:
+          WLOC_BASE_BUNDLE_IDENTIFIER: com.weiweiliang.wloc.schemea
+          WLOC_UNSIGNED_IPA_PATH: ${{ runner.temp }}/WLOC-SchemeA-unsigned.ipa
+        run: ios/scripts/package-unsigned-macos.sh
+      - name: Upload unsigned IPA for local re-signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: WLOC-SchemeA-unsigned
+          path: ${{ runner.temp }}/WLOC-SchemeA-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

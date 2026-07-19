@@ -9,7 +9,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 1
 fi
 
-for script in archive-macos.sh test-macos.sh; do
+for script in archive-macos.sh package-unsigned-macos.sh test-macos.sh; do
   sh -n "$SCRIPT_DIR/$script"
 done
 echo "Verified: iOS shell scripts pass syntax checks."
