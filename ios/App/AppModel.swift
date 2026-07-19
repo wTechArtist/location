@@ -472,81 +472,14 @@ final class AppModel: ObservableObject {
             latitude: actual.coordinate.latitude,
             longitude: actual.coordinate.longitude
         )
-        let accuracyAllowance = max(0, actual.horizontalAccuracy) * 2
-
-        if target.mode == .override, let expected = target.coordinate {
-            let distance = distance(from: actualCoordinate, to: expected)
-            let threshold = max(150, Double(target.accuracy) * 5, accuracyAllowance)
-            let succeeded = distance <= threshold
-            return LocationVerificationEvidence(
-                target: target,
-                actualCoordinate: actualCoordinate,
-                horizontalAccuracy: actual.horizontalAccuracy,
-                distanceMeters: distance,
-                thresholdMeters: threshold,
-                succeeded: succeeded,
-                message: succeeded
-                    ? String(format: "目标定位已核验：Shadowrocket 模块坐标一致，系统回读距离目标 %.0f 米（阈值 %.0f 米）。", distance, threshold)
-                    : String(format: "目标定位未生效：模块坐标已写入，但系统回读距离目标 %.0f 米，超过 %.0f 米阈值。", distance, threshold)
-            )
-        }
-
-        if previousTarget.mode == .passthrough {
-            return LocationVerificationEvidence(
-                target: target,
-                actualCoordinate: actualCoordinate,
-                horizontalAccuracy: actual.horizontalAccuracy,
-                distanceMeters: nil,
-                thresholdMeters: nil,
-                succeeded: true,
-                message: "Shadowrocket 模块已确认无保存坐标，并取得了新的系统定位；当前为真实定位透传。"
-            )
-        }
-
-        let fakeDistance = previousTarget.coordinate.map { distance(from: actualCoordinate, to: $0) }
-        let fakeThreshold = max(250, Double(previousTarget.accuracy) * 5, accuracyAllowance)
-        if let fakeDistance, fakeDistance > fakeThreshold {
-            return LocationVerificationEvidence(
-                target: target,
-                actualCoordinate: actualCoordinate,
-                horizontalAccuracy: actual.horizontalAccuracy,
-                distanceMeters: fakeDistance,
-                thresholdMeters: fakeThreshold,
-                succeeded: true,
-                message: String(format: "真实定位已核验：模块已清除坐标，新位置与原虚拟位置相距 %.0f 米。", fakeDistance)
-            )
-        }
-
-        if let baseline = try store.loadRealLocationBaseline() {
-            let baselineDistance = distance(from: actualCoordinate, to: baseline.coordinate)
-            let baselineThreshold = max(3_000, accuracyAllowance)
-            if baselineDistance <= baselineThreshold {
-                return LocationVerificationEvidence(
-                    target: target,
-                    actualCoordinate: actualCoordinate,
-                    horizontalAccuracy: actual.horizontalAccuracy,
-                    distanceMeters: baselineDistance,
-                    thresholdMeters: baselineThreshold,
-                    succeeded: true,
-                    message: String(format: "真实定位已核验：模块已清除坐标，新位置距切换前真实基线 %.0f 米。", baselineDistance)
-                )
-            }
-        }
-
-        return LocationVerificationEvidence(
-            target: target,
+        let baseline = target.mode == .passthrough ? try store.loadRealLocationBaseline() : nil
+        return LocationVerifier.evaluate(
             actualCoordinate: actualCoordinate,
             horizontalAccuracy: actual.horizontalAccuracy,
-            distanceMeters: fakeDistance,
-            thresholdMeters: fakeThreshold,
-            succeeded: false,
-            message: "模块已切换为真实定位透传，但系统回读无法与原虚拟位置或真实基线区分，因此不宣称恢复已验证。"
+            target: target,
+            previousTarget: previousTarget,
+            realLocationBaseline: baseline
         )
-    }
-
-    private func distance(from lhs: WlocCoordinate, to rhs: WlocCoordinate) -> CLLocationDistance {
-        CLLocation(latitude: lhs.latitude, longitude: lhs.longitude)
-            .distance(from: CLLocation(latitude: rhs.latitude, longitude: rhs.longitude))
     }
 
     private func coordinateLabel(_ coordinate: WlocCoordinate) -> String {
