@@ -32,6 +32,10 @@ if [ "$DEVICE_BUNDLE_ID" != "com.weiweiliang.wloc.schemea" ]; then
   echo "error: 默认 Bundle ID 漂移：$DEVICE_BUNDLE_ID" >&2
   exit 1
 fi
+if ! LOCATION_USAGE=$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$DEVICE_APP/Info.plist" 2>/dev/null) || [ -z "$LOCATION_USAGE" ]; then
+  echo "error: 真机架构产物缺少 NSLocationWhenInUseUsageDescription。" >&2
+  exit 1
+fi
 if [ ! -f "$DEVICE_APP/wloc.module" ]; then
   echo "error: 真机架构产物缺少内置 wloc.module。" >&2
   exit 1
@@ -44,7 +48,7 @@ if find "$DEVICE_APP" -iname '*libbox*' -print -quit | grep . >/dev/null 2>&1; t
   echo "error: 方案 A 的真机架构产物意外包含 Libbox。" >&2
   exit 1
 fi
-echo "Verified: stable Bundle ID, embedded wloc.module, no App Extension or Libbox."
+echo "Verified: stable Bundle ID, location usage description, embedded wloc.module, no App Extension or Libbox."
 
 SIMULATOR_LIST=$(xcrun simctl list devices available)
 printf '%s\n' "$SIMULATOR_LIST"

@@ -93,6 +93,10 @@ audit_app() {
     echo "error: Bundle ID 不一致：$actual_bundle_id" >&2
     exit 1
   fi
+  if ! location_usage=$(/usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$candidate/Info.plist" 2>/dev/null) || [ -z "$location_usage" ]; then
+    echo "error: Info.plist 缺少 NSLocationWhenInUseUsageDescription；系统会拒绝定位授权。" >&2
+    exit 1
+  fi
   if [ "$(/usr/libexec/PlistBuddy -c 'Print :LSApplicationQueriesSchemes:0' "$candidate/Info.plist")" != "shadowrocket" ]; then
     echo "error: Info.plist 未声明 shadowrocket 查询 scheme。" >&2
     exit 1
@@ -118,5 +122,5 @@ cleanup
 
 echo "Unsigned IPA ready: $IPA_PATH"
 echo "SHA256: $IPA_SHA256"
-echo "Verified: arm64、标准 Payload 布局、内置 wloc.module、无签名、无 App Extension、无 Libbox。"
+echo "Verified: arm64、标准 Payload 布局、定位用途说明、内置 wloc.module、无签名、无 App Extension、无 Libbox。"
 echo "注意：该 IPA 仍须针对真实 iPhone 重签名后才能安装；它不是真机验收证据。"

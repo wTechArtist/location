@@ -3,3 +3,5 @@ DerivedData*/
 Wloc.xcodeproj/
 *.xcarchive
 *.ipa
+__pycache__/
+*.pyc

@@ -37,15 +37,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_IDENTIFIER)
         PRODUCT_NAME: WLOC
-        INFOPLIST_KEY_CFBundleDisplayName: WLOC
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: 用于显示当前位置并验证所选定位是否生效。
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: 1
     info:
       path: App/Info.plist
       properties:
+        CFBundleDisplayName: WLOC
+        LSApplicationCategoryType: public.app-category.utilities
+        NSLocationWhenInUseUsageDescription: 用于显示当前位置并验证所选定位是否生效。
+        UIApplicationSupportsIndirectInputEvents: true
         CFBundleURLTypes:
           - CFBundleURLName: com.weiweiliang.wloc.schemea
             CFBundleURLSchemes:

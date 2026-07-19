@@ -58,3 +58,27 @@ WLOC_BASE_BUNDLE_IDENTIFIER=你的唯一BundleID \
 ```
 
 Personal Team 的设备注册、安装方式和签名有效期仍受 Apple 限制。归档或模拟器测试通过不代表真实 iPhone 端到端验收完成。
+
+## Windows 真机自动化验收
+
+`scripts/real-device-e2e.py` 可在 Windows 上通过已配对的 USB iPhone 和预装的 WebDriverAgent，自动执行模块检测、地图选点、虚拟定位、系统定位服务关/开、结果回读、恢复真实定位及失败清理。测试驱动系统“设置”模拟用户操作；这不表示正式 App 获得了越权切换系统定位总开关的能力。
+
+前置条件：iPhone 已开启开发者模式并信任电脑；WLOC 与 WebDriverAgent Runner 已使用同一可用开发签名安装。创建隔离环境并安装固定版本依赖：
+
+```powershell
+py -m venv .venv-wloc-device
+.\.venv-wloc-device\Scripts\python.exe -m pip install -r .\scripts\requirements-real-device.txt
+```
+
+执行完整定位往返验收：
+
+```powershell
+.\.venv-wloc-device\Scripts\python.exe .\scripts\real-device-e2e.py `
+  --udid <iPhone-UDID> `
+  --runner-bundle-id <WebDriverAgentRunner-Bundle-ID> `
+  --app-bundle-id <已安装WLOC-Bundle-ID> `
+  --scenario full-location-roundtrip `
+  --output-dir <证据目录>
+```
+
+脚本退出码为 0 才算本轮通过，并在证据目录写入 `result.json`、每个关键阶段的 PNG 截图和 XML 可访问性树。若中途失败，脚本会尽力把系统定位服务恢复为开启状态；仍应人工核对最终状态。
