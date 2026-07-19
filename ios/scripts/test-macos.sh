@@ -26,6 +26,21 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   build
 
+DEVICE_APP="$IOS_DIR/DerivedData-Device/Build/Products/Debug-iphoneos/WLOC.app"
+if [ ! -f "$DEVICE_APP/wloc.module" ]; then
+  echo "error: 真机架构产物缺少内置 wloc.module。" >&2
+  exit 1
+fi
+if find "$DEVICE_APP" -type d -name '*.appex' -print -quit | grep . >/dev/null 2>&1; then
+  echo "error: 方案 A 的真机架构产物意外包含 App Extension。" >&2
+  exit 1
+fi
+if find "$DEVICE_APP" -iname '*libbox*' -print -quit | grep . >/dev/null 2>&1; then
+  echo "error: 方案 A 的真机架构产物意外包含 Libbox。" >&2
+  exit 1
+fi
+echo "Verified: device app embeds wloc.module and contains no App Extension or Libbox."
+
 SIMULATOR_LIST=$(xcrun simctl list devices available)
 printf '%s\n' "$SIMULATOR_LIST"
 SIMULATOR_UDID=$(

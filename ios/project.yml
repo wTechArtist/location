@@ -30,8 +30,7 @@ targets:
     sources:
       - path: App
     resources:
-      - path: ../wloc.jpg
-      - path: ../modules/wloc.module
+      - path: App/Resources
     dependencies:
       - package: WlocCore
     settings:
