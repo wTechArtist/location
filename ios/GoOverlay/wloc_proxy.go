@@ -342,7 +342,7 @@ func (p *WlocProxy) roundTrip(request *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("WLOC upstream request: %w", err)
 	}
-	if !isWlocLocationPath(request.URL.Path) {
+	if !isWlocLocationPath(request.URL.Path) || response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, nil
 	}
 	body, err := readResponseBody(response)

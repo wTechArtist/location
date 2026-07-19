@@ -148,6 +148,11 @@ func TestLocalProxyInterceptsTLSAndPatchesResponse(t *testing.T) {
 		if request.Host != "gs-loc.apple.com" {
 			t.Errorf("unexpected upstream host %q", request.Host)
 		}
+		if request.URL.Query().Get("fail") == "1" {
+			writer.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = writer.Write([]byte("upstream-error"))
+			return
+		}
 		_, _ = writer.Write([]byte("protobuf"))
 	}))
 	defer upstream.Close()
@@ -221,5 +226,21 @@ func TestLocalProxyInterceptsTLSAndPatchesResponse(t *testing.T) {
 	}
 	if patcher.calls != 1 {
 		t.Fatalf("non-WLOC path unexpectedly invoked patcher; calls=%d", patcher.calls)
+	}
+
+	errorResponse, err := client.Get("https://gs-loc.apple.com/clls/wloc?fail=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer errorResponse.Body.Close()
+	errorBody, err := io.ReadAll(errorResponse.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errorResponse.StatusCode != http.StatusServiceUnavailable || string(errorBody) != "upstream-error" {
+		t.Fatalf("unexpected WLOC upstream error response: status=%d body=%q", errorResponse.StatusCode, errorBody)
+	}
+	if patcher.calls != 1 {
+		t.Fatalf("non-success WLOC response unexpectedly invoked patcher; calls=%d", patcher.calls)
 	}
 }
